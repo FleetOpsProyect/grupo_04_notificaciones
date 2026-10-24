@@ -1,0 +1,13 @@
+node_modules/
+coverage/
+.env
+.env.*
+!.env.example
+*.log
+.firebase/
+firebase-debug.log
+service-account*.json
+.DS_Store
+Thumbs.db
+/docs/
+/silence/

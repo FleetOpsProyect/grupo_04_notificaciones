@@ -1,0 +1,458 @@
+openapi: 3.0.3
+info:
+  title: FleetOps Notification Service API
+  version: 1.0.0
+  description: API del microservicio de Notificaciones de FleetOps (Grupo 04).
+servers:
+  - url: http://localhost:3000
+tags:
+  - name: Notificaciones
+  - name: Operación
+paths:
+  /api/v1/notificaciones:
+    post:
+      tags: [Notificaciones]
+      summary: Crear una notificación manual
+      operationId: createManualNotification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateManualNotificationRequest'
+      responses:
+        '201':
+          description: Notificación creada
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URL del recurso creado
+            x-correlation-id:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateManualNotificationResponse'
+        '400':
+          $ref: '#/components/responses/InvalidData'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    get:
+      tags: [Notificaciones]
+      summary: Listar notificaciones
+      operationId: listNotifications
+      parameters:
+        - name: recipient_role
+          in: query
+          schema:
+            type: string
+            enum: [FLEET_ADMINISTRATOR, MAINTENANCE_TECHNICIAN, MANAGEMENT, EMPLOYEE]
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [INCIDENT, ASSIGNMENT, DOCUMENT, MAINTENANCE, FUEL, GENERAL]
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [INFORMATIONAL, WARNING, CRITICAL]
+        - name: dispatch_status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING_DISPATCH, SENT, FAILED]
+        - name: attention_status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, ATTENDED]
+        - name: reference_id
+          in: query
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 50
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Listado paginado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListNotificationsResponse'
+        '400':
+          $ref: '#/components/responses/InvalidParameters'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/notificaciones/estado:
+    get:
+      tags: [Notificaciones]
+      summary: Consultar el estado agregado de notificaciones
+      operationId: getNotificationStatus
+      responses:
+        '200':
+          description: Conteos agregados
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationStatusResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/notificaciones/{id}:
+    get:
+      tags: [Notificaciones]
+      summary: Consultar una notificación
+      operationId: getNotification
+      parameters:
+        - $ref: '#/components/parameters/NotificationId'
+      responses:
+        '200':
+          description: Detalle de la notificación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationView'
+        '400':
+          $ref: '#/components/responses/InvalidParameters'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/notificaciones/{id}/atender:
+    put:
+      tags: [Notificaciones]
+      summary: Marcar como atendida una notificación y su alerta
+      operationId: markAlertAttended
+      parameters:
+        - $ref: '#/components/parameters/NotificationId'
+      responses:
+        '200':
+          description: Atención idempotente completada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendedNotificationResponse'
+        '400':
+          $ref: '#/components/responses/InvalidParameters'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /health:
+    get:
+      tags: [Operación]
+      summary: Liveness
+      operationId: health
+      responses:
+        '200':
+          description: Servicio activo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: UP
+  /ready:
+    get:
+      tags: [Operación]
+      summary: Readiness
+      operationId: readiness
+      responses:
+        '200':
+          description: Servicio listo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+        '503':
+          description: Firestore no disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+  /metrics:
+    get:
+      tags: [Operación]
+      summary: Métricas Prometheus
+      operationId: metrics
+      responses:
+        '200':
+          description: Métricas en formato Prometheus
+          content:
+            text/plain:
+              schema:
+                type: string
+components:
+  parameters:
+    NotificationId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    CreateManualNotificationRequest:
+      type: object
+      required: [type, severity, recipient_role, message]
+      properties:
+        type:
+          type: string
+          enum: [INCIDENT, ASSIGNMENT, DOCUMENT, MAINTENANCE, FUEL, GENERAL]
+        severity:
+          type: string
+          enum: [INFORMATIONAL, WARNING, CRITICAL]
+        recipient_role:
+          type: string
+          enum: [FLEET_ADMINISTRATOR, MAINTENANCE_TECHNICIAN, MANAGEMENT]
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        reference_id:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: '^\S+$'
+    CreateManualNotificationResponse:
+      type: object
+      required: [notification_id, alert_id, dispatch_status, created_at]
+      properties:
+        notification_id:
+          type: string
+          format: uuid
+        alert_id:
+          type: string
+          format: uuid
+        dispatch_status:
+          type: string
+          enum: [PENDING_DISPATCH, SENT, FAILED]
+        created_at:
+          type: string
+          format: date-time
+    NotificationView:
+      type: object
+      properties:
+        notification_id:
+          type: string
+          format: uuid
+        alert_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [INCIDENT, ASSIGNMENT, DOCUMENT, MAINTENANCE, FUEL, GENERAL]
+        severity:
+          type: string
+          enum: [INFORMATIONAL, WARNING, CRITICAL]
+        recipient_role:
+          type: string
+          enum: [FLEET_ADMINISTRATOR, MAINTENANCE_TECHNICIAN, MANAGEMENT, EMPLOYEE]
+        recipient_email:
+          type: string
+          nullable: true
+          example: 'a***@example.com'
+        subject:
+          type: string
+        message:
+          type: string
+        reference_id:
+          type: string
+          nullable: true
+        origin:
+          type: string
+          enum: [EVENT, MANUAL]
+        source_event_type:
+          type: string
+          nullable: true
+        event_id:
+          type: string
+          nullable: true
+        correlation_id:
+          type: string
+        attention_status:
+          type: string
+          enum: [PENDING, ATTENDED]
+        attended_at:
+          type: string
+          format: date-time
+          nullable: true
+        dispatch_status:
+          type: string
+          enum: [PENDING_DISPATCH, SENT, FAILED]
+        dispatch_attempts:
+          type: integer
+          minimum: 0
+        next_attempt_at:
+          type: string
+          format: date-time
+          nullable: true
+        locked_until:
+          type: string
+          format: date-time
+          nullable: true
+        failure_reason:
+          type: string
+          nullable: true
+        provider_message_id:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        sent_at:
+          type: string
+          format: date-time
+          nullable: true
+    ListNotificationsResponse:
+      type: object
+      required: [contenido, page, size, total, resumen]
+      properties:
+        contenido:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationView'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+        total:
+          type: integer
+          minimum: 0
+        resumen:
+          type: object
+          properties:
+            by_severity:
+              type: object
+              additionalProperties:
+                type: integer
+            by_dispatch_status:
+              type: object
+              additionalProperties:
+                type: integer
+    NotificationStatusResponse:
+      type: object
+      properties:
+        alertas_criticas_pendientes:
+          type: integer
+        total_notifications:
+          type: integer
+        by_severity:
+          type: object
+          additionalProperties:
+            type: integer
+        dispatch:
+          type: object
+          properties:
+            pending:
+              type: integer
+            sent:
+              type: integer
+            failed:
+              type: integer
+        generated_at:
+          type: string
+          format: date-time
+    AttendedNotificationResponse:
+      type: object
+      required: [notification_id, alert_id, attention_status, attended_at]
+      properties:
+        notification_id:
+          type: string
+          format: uuid
+        alert_id:
+          type: string
+          format: uuid
+        attention_status:
+          type: string
+          enum: [PENDING, ATTENDED]
+        attended_at:
+          type: string
+          format: date-time
+    ReadinessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [READY, NOT_READY]
+        checks:
+          type: object
+          additionalProperties: true
+    ErrorResponse:
+      type: object
+      required: [codigo, mensaje, timestamp, ruta, correlation_id]
+      properties:
+        codigo:
+          type: string
+          example: INVALID_DATA
+        mensaje:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        ruta:
+          type: string
+        correlation_id:
+          type: string
+        errores:
+          type: array
+          items:
+            type: object
+            properties:
+              campo:
+                type: string
+              codigo:
+                type: string
+  responses:
+    InvalidData:
+      description: Datos inválidos
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InvalidParameters:
+      description: Parámetros inválidos
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Notificación no encontrada
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ServiceUnavailable:
+      description: Dependencia temporalmente no disponible
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
