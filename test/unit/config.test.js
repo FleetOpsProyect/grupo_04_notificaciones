@@ -7,6 +7,7 @@ describe('configuración', () => {
     expect(config.port).toBe(3000);
     expect(config.email.provider).toBe('console');
     expect(config.email.retryDelaysMs).toEqual([30000, 120000, 600000]);
+    expect(config.kafka.consumerRetryDelaysMs).toEqual([2000, 10000, 30000]);
     expect(config.kafka.brokers).toEqual(['127.0.0.1:9092']);
     expect(config.kafka.enabled).toBe(false);
     expect(config.recipients.MANAGEMENT).toBe('gerencia@example.invalid');

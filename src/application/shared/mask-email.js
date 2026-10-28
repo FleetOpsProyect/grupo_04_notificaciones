@@ -11,4 +11,13 @@ const maskEmail = (email) => {
   return `${local.slice(0, 1)}***@${domain}`;
 };
 
-module.exports = { maskEmail };
+const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+
+const maskEmailsInText = (text) => {
+  if (typeof text !== 'string') {
+    return null;
+  }
+  return text.replace(EMAIL_PATTERN, (email) => maskEmail(email) ?? '[correo]');
+};
+
+module.exports = { maskEmail, maskEmailsInText };

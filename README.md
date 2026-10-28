@@ -10,7 +10,7 @@ automatismo de integración es GitHub Actions para calidad.
 
 ## Requisitos
 
-- Node.js `>=24.22.1`
+- Node.js `>=24.22.1`; CI y `.nvmrc` fijan `24.22.1`
 - npm
 - Firestore (emulador o proyecto administrado) para persistencia real
 - Kafka opcional; si `KAFKA_ENABLED=false` el consumidor no arranca
@@ -26,6 +26,13 @@ npm start
 
 Por defecto el servicio usa `EMAIL_PROVIDER=console`, por lo que no envía correos reales. Para
 Firestore local configure `FIRESTORE_EMULATOR_HOST` y `FIREBASE_PROJECT_ID`.
+
+### Correo con Resend
+
+Para envío real configure `EMAIL_PROVIDER=resend`, `RESEND_API_KEY` y `EMAIL_FROM`. El remitente debe
+ser un correo plano, sin `Nombre <correo>`; además, el dominio debe estar verificado en Resend
+(SPF/DKIM) o usar `onboarding@resend.dev` únicamente hacia el correo de la cuenta. La API key debe
+tener permiso de envío. No incluya credenciales en el repositorio ni en los logs.
 
 ### Kafka local con Docker
 
@@ -49,10 +56,13 @@ docker run -d --name fleetops-kafka -p 9092:9092 \
   apache/kafka:3.9.0
 
 npm run kafka:setup
+npm run test:integration
 ```
 
-Configure `KAFKA_ENABLED=true` y `KAFKA_BROKERS=127.0.0.1:9092` en `.env`. Para el primer arranque
+La suite de integración requiere el broker local levantado; `npm test` la omite. Configure `KAFKA_ENABLED=true` y `KAFKA_BROKERS=127.0.0.1:9092` en `.env`. Para el primer arranque
 en frío conviene `READINESS_TIMEOUT_MS=10000`.
+
+Antes de ejecutar cualquier suite de integración, detenga el servicio local (`npm run dev` o `npm start`). El consumidor y el scheduler en ejecución comparten el mismo broker y proyecto de Firestore, por lo que pueden consumir eventos de prueba o despachar notificaciones pendientes y volver las pruebas intermitentes.
 
 Publicar eventos de prueba y verificar el resultado:
 
@@ -69,6 +79,15 @@ La creación de los índices de Firestore requiere permisos de `datastore.indexe
 npm run firestore:indexes
 ```
 
+La suite de integración de Firestore usa el proyecto real configurado en `.env`, crea documentos con IDs únicos y los elimina al finalizar. Incluye repositorios y el flujo manual HTTP/scheduler con correo simulado:
+
+```bash
+npm run test:integration:firestore
+npm run test:integration:all   # Kafka y Firestore en secuencia
+```
+
+Ejecute las suites en secuencia, no en paralelo. Si el servicio local sigue activo, su scheduler puede reclamar y marcar `SENT` las notificaciones `PENDING_DISPATCH` creadas por la prueba.
+
 Variables relevantes:
 
 | Variable                          | Uso                                                  |
@@ -80,6 +99,7 @@ Variables relevantes:
 | `KAFKA_BROKERS`, `KAFKA_GROUP_ID` | Conexión y grupo consumidor                          |
 | `EMAIL_PROVIDER`                  | `console` o `resend`                                 |
 | `RESEND_API_KEY`                  | Obligatoria con `EMAIL_PROVIDER=resend`              |
+| `EMAIL_FROM`                      | Remitente verificado; correo plano, sin nombre       |
 | `EMAIL_RETRY_DELAYS_MS`           | Backoff de correo, por defecto `30000,120000,600000` |
 | `DISPATCH_INTERVAL_MS`            | Frecuencia del scheduler, `10000` por defecto        |
 | `RECIPIENT_*`                     | Correos de destino por rol                           |
@@ -115,6 +135,9 @@ Contrato completo: `openapi/notification-service.yaml`.
 
 ```bash
 npm test                  # unitarias, API y E2E con dobles en memoria
+npm run test:integration  # integración Kafka contra broker local
+npm run test:integration:firestore # integración Firestore contra proyecto real
+npm run test:integration:all # Kafka y Firestore en secuencia
 npm run test:coverage     # cobertura del núcleo
 npm run lint              # ESLint
 npm run format:check      # Prettier
@@ -148,17 +171,18 @@ test/
 - Consultas de listado con filtros compuestos usan índices; si Firestore no puede resolver una
   combinación, se ejecuta un fallback acotado a 10.000 documentos.
 - El índice `dispatch_status + next_attempt_at` ya está creado y el flujo
-  `Kafka -> Firestore -> scheduler -> correo console` funciona. Los otros seis índices de listado
-  siguen pendientes; la cuenta de servicio actual no tiene permiso para crearlos.
+  `Kafka -> Firestore -> scheduler -> correo console` funciona. Los 8 índices compuestos están
+  creados y en `READY`; la cuenta de servicio no tiene permiso para crearlos por script.
 - La autenticación/RBAC se delega al API Gateway; este servicio no valida JWT.
 - Los contratos de varios eventos siguen pendientes. Los handlers toleran campos opcionales y los
   eventos sin contrato se ignoran explícitamente.
 - La cobertura objetivo del núcleo está configurada en 90 % de líneas/funciones/statements y 85 %
   de ramas.
-- CI ejecuta lint, formato, OpenAPI y pruebas con cobertura; no publica imágenes ni despliega.
+- CI ejecuta lint, formato, OpenAPI y pruebas con cobertura; no levanta Kafka ni Firestore ni publica imágenes.
+- Las suites de integración se ejecutan localmente con `npm run test:integration`, `npm run test:integration:firestore` o ambas en secuencia con `npm run test:integration:all`.
 
 ## Documentación relacionada
 
-- Estado de Fase D: `../docs/estado-implementacion-fase-d.md`
-- Pendientes: `../docs/pendientes-fase-d.md`
-- Cambios de integración Kafka local: `../docs/cambios-integracion-kafka-local.md`
+- Estado de Fase D: `docs/estado-implementacion-fase-d.md`
+- Pendientes: `docs/pendientes-fase-d.md`
+- Cambios de integración Kafka local: `docs/cambios-integracion-kafka-local.md`

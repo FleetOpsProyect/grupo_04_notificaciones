@@ -64,7 +64,7 @@ class Notification {
     assertEnum('attention_status', attention_status, ATTENTION_STATUS_VALUES);
     assertEnum('dispatch_status', dispatch_status, DISPATCH_STATUS_VALUES);
     assertDate('created_at', created_at);
-    assertDate('next_attempt_at', next_attempt_at);
+    assertDate('next_attempt_at', next_attempt_at, { nullable: true });
     assertDate('locked_until', locked_until, { nullable: true });
     assertDate('attended_at', attended_at, { nullable: true });
     assertDate('sent_at', sent_at, { nullable: true });
@@ -77,6 +77,11 @@ class Notification {
     }
     if (dispatch_status === DispatchStatus.SENT && sent_at === null) {
       throw new InvalidDataError('sent_at es obligatorio cuando dispatch_status es SENT');
+    }
+    if (dispatch_status === DispatchStatus.PENDING_DISPATCH && next_attempt_at === null) {
+      throw new InvalidDataError(
+        'next_attempt_at es obligatorio cuando dispatch_status es PENDING_DISPATCH',
+      );
     }
 
     this.notification_id = notification_id;
@@ -114,7 +119,7 @@ class Notification {
     if (this.dispatch_status !== DispatchStatus.PENDING_DISPATCH) {
       return null;
     }
-    if (this.next_attempt_at.getTime() > now.getTime()) {
+    if (this.next_attempt_at === null || this.next_attempt_at.getTime() > now.getTime()) {
       return null;
     }
     if (this.locked_until !== null && this.locked_until.getTime() > now.getTime()) {
@@ -145,6 +150,7 @@ class Notification {
       ...this,
       dispatch_status: DispatchStatus.SENT,
       sent_at: now,
+      next_attempt_at: null,
       locked_until: null,
       failure_reason: null,
       provider_message_id: providerMessageId,
@@ -166,6 +172,7 @@ class Notification {
       ...this,
       dispatch_status: DispatchStatus.FAILED,
       dispatch_attempts: attempts,
+      next_attempt_at: null,
       locked_until: null,
       failure_reason: reason,
     });

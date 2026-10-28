@@ -113,6 +113,7 @@ describe('Notification', () => {
     const sent = baseNotification().markSent(NOW, 'provider-1');
     expect(sent.dispatch_status).toBe(DispatchStatus.SENT);
     expect(sent.sent_at).toBe(NOW);
+    expect(sent.next_attempt_at).toBeNull();
     expect(sent.failure_reason).toBeNull();
     expect(sent.isFinal()).toBe(true);
     expect(sent.markSent(new Date(), 'provider-2')).toBe(sent);
@@ -130,6 +131,7 @@ describe('Notification', () => {
     const failed = baseNotification().markFailed(NOW, 'ERROR');
     expect(failed.dispatch_status).toBe(DispatchStatus.FAILED);
     expect(failed.dispatch_attempts).toBe(1);
+    expect(failed.next_attempt_at).toBeNull();
     expect(failed.markFailed(NOW, 'OTRO')).toBe(failed);
     expect(() => baseNotification().markFailed(NOW, '')).toThrow(InvalidDataError);
     expect(() => baseNotification().markFailed('ayer', 'ERROR')).toThrow(InvalidDataError);
@@ -186,6 +188,10 @@ describe('Notification', () => {
       'attended_at es obligatorio',
     ],
     [{ dispatch_status: DispatchStatus.SENT, sent_at: null }, 'sent_at es obligatorio'],
+    [
+      { dispatch_status: DispatchStatus.PENDING_DISPATCH, next_attempt_at: null },
+      'next_attempt_at es obligatorio',
+    ],
   ])('rechaza datos inválidos %#', (overrides, message) => {
     expect(() => baseNotification(overrides)).toThrow(message);
   });

@@ -1,4 +1,4 @@
-const { maskEmail } = require('../../src/application/shared/mask-email');
+const { maskEmail, maskEmailsInText } = require('../../src/application/shared/mask-email');
 const {
   formatBogotaIso,
   formatBogotaText,
@@ -40,6 +40,10 @@ describe('shared helpers', () => {
     expect(maskEmail('@example.com')).toBeNull();
     expect(maskEmail('persona@')).toBeNull();
     expect(maskEmail(null)).toBeNull();
+    expect(maskEmailsInText('Fallo para persona@example.com y otro@test.dev')).toBe(
+      'Fallo para p***@example.com y o***@test.dev',
+    );
+    expect(maskEmailsInText(null)).toBeNull();
   });
 
   test('formatea fechas de Bogotá', () => {
@@ -87,6 +91,9 @@ describe('shared helpers', () => {
     expect(safeErrorFields(new Error('fallo'))).toMatchObject({
       error_name: 'Error',
       error_message: 'fallo',
+    });
+    expect(safeErrorFields(new Error('fallo para persona@example.com'))).toMatchObject({
+      error_message: 'fallo para p***@example.com',
     });
     expect(safeErrorFields(null)).toEqual({
       error_name: 'UnknownError',

@@ -168,6 +168,7 @@ const createContainer = (config) => {
   });
 
   let started = false;
+  let stopPromise = null;
 
   return {
     config,
@@ -208,23 +209,31 @@ const createContainer = (config) => {
       );
     },
     async stop() {
-      const closers = [() => scheduler.stop()];
-      if (kafkaConsumer) {
-        closers.push(() => kafkaConsumer.stop());
+      if (stopPromise) {
+        return stopPromise;
       }
-      if (kafkaProducer) {
-        closers.push(() => kafkaProducer.disconnect());
-      }
-      if (kafkaAdmin) {
-        closers.push(() => kafkaAdmin.disconnect());
-      }
-      closers.push(() => firestore.close());
 
-      const results = await Promise.allSettled(closers.map((close) => close()));
-      const failure = results.find((result) => result.status === 'rejected');
-      if (failure) {
-        throw failure.reason;
-      }
+      stopPromise = (async () => {
+        const closers = [() => scheduler.stop()];
+        if (kafkaConsumer) {
+          closers.push(() => kafkaConsumer.stop());
+        }
+        if (kafkaProducer) {
+          closers.push(() => kafkaProducer.disconnect());
+        }
+        if (kafkaAdmin) {
+          closers.push(() => kafkaAdmin.disconnect());
+        }
+        closers.push(() => firestore.close());
+
+        const results = await Promise.allSettled(closers.map((close) => close()));
+        const failure = results.find((result) => result.status === 'rejected');
+        if (failure) {
+          throw failure.reason;
+        }
+      })();
+
+      return stopPromise;
     },
   };
 };

@@ -1,4 +1,4 @@
-const { maskEmail } = require('./mask-email');
+const { maskEmail, maskEmailsInText } = require('./mask-email');
 
 const safeNotificationLogFields = (notification) => ({
   notification_id: notification.notification_id,
@@ -15,7 +15,7 @@ const safeNotificationLogFields = (notification) => ({
 const safeErrorFields = (error) => ({
   error_name: error?.name ?? 'UnknownError',
   error_code: error?.code ?? 'UNKNOWN',
-  error_message: error?.message ?? 'Error desconocido',
+  error_message: maskEmailsInText(error?.message) ?? 'Error desconocido',
 });
 
 module.exports = { safeNotificationLogFields, safeErrorFields };

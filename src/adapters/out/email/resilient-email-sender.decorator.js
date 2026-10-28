@@ -18,7 +18,7 @@ const createResilientEmailSender = ({
 }) => {
   const breaker = new CircuitBreaker((message) => sender.send(message), {
     timeout: timeoutMs,
-    errorThresholdPercentage: 100,
+    errorThresholdPercentage: 99,
     volumeThreshold: circuitBreakerThreshold,
     resetTimeout: circuitBreakerResetMs,
     rollingCountTimeout: Math.max(circuitBreakerResetMs, 10000),

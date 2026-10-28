@@ -19,6 +19,9 @@ const isDispatchDue = (notification, now) => {
   if (notification.dispatch_status !== 'PENDING_DISPATCH') {
     return false;
   }
+  if (notification.next_attempt_at === null) {
+    return false;
+  }
   if (notification.next_attempt_at.getTime() > now.getTime()) {
     return false;
   }
