@@ -186,3 +186,36 @@ test/
 - Estado de Fase D: `docs/estado-implementacion-fase-d.md`
 - Pendientes: `docs/pendientes-fase-d.md`
 - Cambios de integración Kafka local: `docs/cambios-integracion-kafka-local.md`
+
+## Migración a AWS SQS/SNS (DAS v1.1)
+
+El servicio soporta ambos brokers mediante `BROKER_TYPE`:
+- `kafka` (por defecto, comportamiento actual)
+- `sqs` (SNS/SQS FIFO)
+
+### Uso local con LocalStack
+```bash
+# Levantar LocalStack
+docker compose -f docker-compose.localstack.yml up -d
+
+# Crear colas/topics
+npm run sqs:setup:localstack
+
+# Configurar .env
+BROKER_TYPE=sqs
+AWS_REGION=us-east-1
+AWS_ENDPOINT_URL=http://localhost:4566
+AWS_ACCESS_KEY_ID=test
+AWS_SECRET_ACCESS_KEY=test
+SQS_QUEUE_URL=...
+SQS_DLQ_URL=...
+SNS_NOTIFICATION_TOPIC_ARN=...
+
+# Arrancar servicio
+npm start
+```
+
+Notas:
+- El núcleo no cambia; solo adaptadores (hexagonal)
+- Idempotencia con `processed_events` se mantiene
+- Mensajes se borran solo tras procesamiento exitoso

@@ -46,6 +46,39 @@ const envSchema = z
       z.string().trim().optional(),
     ),
 
+    BROKER_TYPE: z.enum(['kafka', 'sqs']).default('kafka'),
+
+    AWS_REGION: z.string().trim().default('us-east-1'),
+    AWS_ENDPOINT_URL: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.string().trim().optional(),
+    ),
+    AWS_ACCESS_KEY_ID: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.string().trim().optional(),
+    ),
+    AWS_SECRET_ACCESS_KEY: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.string().optional(),
+    ),
+
+    SQS_QUEUE_URL: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.string().trim().optional(),
+    ),
+    SQS_DLQ_URL: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.string().trim().optional(),
+    ),
+    SQS_WAIT_TIME_SECONDS: integer(20, 1),
+    SQS_MAX_NUMBER_OF_MESSAGES: integer(10, 1),
+    SQS_VISIBILITY_TIMEOUT_SECONDS: integer(30, 1),
+
+    SNS_NOTIFICATION_TOPIC_ARN: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.string().trim().optional(),
+    ),
+
     KAFKA_ENABLED: boolean.default(false),
     KAFKA_BROKERS: z.string().trim().default('127.0.0.1:9092'),
     KAFKA_CLIENT_ID: z.string().trim().min(1).default('notification-service'),
@@ -147,13 +180,38 @@ const loadConfig = (environment = process.env) => {
     logLevel: value.LOG_LEVEL,
     timezone: value.TZ,
     enableSwagger: value.ENABLE_SWAGGER,
+    broker: Object.freeze({
+      type: value.BROKER_TYPE,
+    }),
+    aws: Object.freeze({
+      region: value.AWS_REGION,
+      endpoint: value.AWS_ENDPOINT_URL ?? null,
+      credentials:
+        value.AWS_ACCESS_KEY_ID && value.AWS_SECRET_ACCESS_KEY
+          ? Object.freeze({
+              accessKeyId: value.AWS_ACCESS_KEY_ID,
+              secretAccessKey: value.AWS_SECRET_ACCESS_KEY,
+            })
+          : null,
+    }),
+    sqs: Object.freeze({
+      queueUrl: value.SQS_QUEUE_URL ?? null,
+      dlqUrl: value.SQS_DLQ_URL ?? null,
+      waitTimeSeconds: value.SQS_WAIT_TIME_SECONDS,
+      maxNumberOfMessages: value.SQS_MAX_NUMBER_OF_MESSAGES,
+      visibilityTimeoutSeconds: value.SQS_VISIBILITY_TIMEOUT_SECONDS,
+      consumerRetryDelaysMs: Object.freeze(consumerRetryDelays),
+    }),
+    sns: Object.freeze({
+      notificationTopicArn: value.SNS_NOTIFICATION_TOPIC_ARN ?? null,
+    }),
     firestore: Object.freeze({
       projectId: value.FIREBASE_PROJECT_ID,
       credentialsPath: value.GOOGLE_APPLICATION_CREDENTIALS ?? null,
       emulatorHost: value.FIRESTORE_EMULATOR_HOST ?? null,
     }),
     kafka: Object.freeze({
-      enabled: value.KAFKA_ENABLED,
+      enabled: value.BROKER_TYPE === 'kafka' ? value.KAFKA_ENABLED : false,
       brokers: csv(value.KAFKA_BROKERS),
       clientId: value.KAFKA_CLIENT_ID,
       groupId: value.KAFKA_GROUP_ID,

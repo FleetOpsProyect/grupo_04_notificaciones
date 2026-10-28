@@ -27,10 +27,13 @@
     "kafka:publish": "node scripts/kafka-publish.js",
     "firestore:event": "node scripts/firestore-inspect-event.js",
     "firestore:cleanup": "node scripts/firestore-cleanup-event.js",
-    "firestore:indexes": "node scripts/firestore-indexes.js"
+    "firestore:indexes": "node scripts/firestore-indexes.js",
+    "sqs:setup:localstack": "node scripts/sqs-setup-localstack.js"
   },
   "dependencies": {
     "@apidevtools/swagger-parser": "13.1.0",
+    "@aws-sdk/client-sns": "^3.1158.0",
+    "@aws-sdk/client-sqs": "^3.1158.0",
     "dotenv": "18.0.8",
     "express": "5.3.0",
     "firebase-admin": "14.5.0",

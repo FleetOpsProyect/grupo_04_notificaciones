@@ -20,6 +20,11 @@ const {
   createKafkaDeadLetterPublisher,
 } = require('../adapters/out/kafka/kafka-dead-letter.publisher');
 const { createKafkaEventConsumer } = require('../adapters/in/kafka/kafka-event.consumer');
+const { createSqsClient } = require('../adapters/out/sqs/sqs.client');
+const { createSnsClient } = require('../adapters/out/sns/sns.client');
+const { createSqsDeadLetterPublisher } = require('../adapters/out/sqs/sqs-dead-letter.publisher');
+const { createSnsEventPublisher } = require('../adapters/out/sns/sns-event.publisher');
+const { createSqsEventConsumer } = require('../adapters/in/sqs/sqs-event.consumer');
 const { createDispatchScheduler } = require('../adapters/in/scheduler/dispatch.scheduler');
 const { createEventHandlerRegistry } = require('../application/handlers/event-handler.registry');
 const {
@@ -123,31 +128,91 @@ const createContainer = (config) => {
     markAlertAttended,
   });
 
-  const kafkaClient = config.kafka.enabled ? createKafkaClient(config.kafka) : null;
-  const kafkaProducer = kafkaClient ? kafkaClient.producer() : null;
-  const kafkaAdmin = kafkaClient ? kafkaClient.admin() : null;
-  const deadLetterPublisher = kafkaProducer
-    ? createKafkaDeadLetterPublisher({
-        producer: kafkaProducer,
-        topic: config.kafka.dlqTopic,
+  const brokerType = config.broker?.type || (config.kafka.enabled ? 'kafka' : 'kafka');
+
+  let kafkaClient = null;
+  let kafkaProducer = null;
+  let kafkaAdmin = null;
+  let kafkaConsumer = null;
+  let sqsClient = null;
+  let sqsConsumer = null;
+  let deadLetterPublisher = null;
+
+  if (brokerType === 'sqs') {
+    sqsClient = createSqsClient({
+      region: config.aws.region,
+      endpoint: config.aws.endpoint,
+      credentials: config.aws.credentials,
+    });
+    const snsClientInstance = createSnsClient({
+      region: config.aws.region,
+      endpoint: config.aws.endpoint,
+      credentials: config.aws.credentials,
+    });
+    if (config.sqs.dlqUrl) {
+      deadLetterPublisher = createSqsDeadLetterPublisher({
+        sqsClient,
+        dlqUrl: config.sqs.dlqUrl,
         clock,
-      })
-    : null;
-  const kafkaConsumer =
-    kafkaClient && deadLetterPublisher
-      ? createKafkaEventConsumer({
-          kafka: kafkaClient,
-          kafkaConfig: config.kafka,
-          processDomainEvent,
-          deadLetterPublisher,
-          logger,
-          metrics,
+      });
+    }
+    if (config.sns.notificationTopicArn) {
+      // Event publisher disponible para uso futuro (outbox)
+      void createSnsEventPublisher({ snsClient: snsClientInstance, topicArn: config.sns.notificationTopicArn });
+    }
+    if (sqsClient && config.sqs.queueUrl) {
+      sqsConsumer = createSqsEventConsumer({
+        sqsClient,
+        sqsConfig: config.sqs,
+        queueUrl: config.sqs.queueUrl,
+        processDomainEvent,
+        deadLetterPublisher,
+        logger,
+        metrics,
+      });
+    }
+  } else {
+    kafkaClient = config.kafka.enabled ? createKafkaClient(config.kafka) : null;
+    kafkaProducer = kafkaClient ? kafkaClient.producer() : null;
+    kafkaAdmin = kafkaClient ? kafkaClient.admin() : null;
+    deadLetterPublisher = kafkaProducer
+      ? createKafkaDeadLetterPublisher({
+          producer: kafkaProducer,
+          topic: config.kafka.dlqTopic,
+          clock,
         })
       : null;
+    kafkaConsumer =
+      kafkaClient && deadLetterPublisher
+        ? createKafkaEventConsumer({
+            kafka: kafkaClient,
+            kafkaConfig: config.kafka,
+            processDomainEvent,
+            deadLetterPublisher,
+            logger,
+            metrics,
+          })
+        : null;
+  }
 
   const readiness = createReadiness({
     databaseCheck: () => firestore.databaseCheck(),
-    brokerCheck: kafkaAdmin ? () => kafkaAdmin.describeCluster() : null,
+    brokerCheck:
+      brokerType === 'sqs'
+        ? sqsClient && config.sqs.queueUrl
+          ? async () => {
+              const { GetQueueAttributesCommand } = require('@aws-sdk/client-sqs');
+              const command = new GetQueueAttributesCommand({
+                QueueUrl: config.sqs.queueUrl,
+                AttributeNames: ['ApproximateNumberOfMessages'],
+              });
+              await sqsClient.send(command);
+              return true;
+            }
+          : null
+        : kafkaAdmin
+        ? () => kafkaAdmin.describeCluster()
+        : null,
     emailProviderName: config.email.provider,
     timeoutMs: config.health.readinessTimeoutMs,
   });
@@ -195,7 +260,11 @@ const createContainer = (config) => {
       }
       started = true;
       scheduler.start();
-      if (kafkaClient) {
+      if (brokerType === 'sqs') {
+        if (sqsConsumer) {
+          await sqsConsumer.start();
+        }
+      } else if (kafkaClient) {
         await kafkaProducer.connect();
         await kafkaAdmin.connect();
         await kafkaConsumer.start();
@@ -203,7 +272,9 @@ const createContainer = (config) => {
       logger.info(
         {
           email_provider: config.email.provider,
-          kafka_enabled: config.kafka.enabled,
+          broker_type: brokerType,
+          kafka_enabled: brokerType === 'kafka' ? config.kafka.enabled : false,
+          sqs_enabled: brokerType === 'sqs' && Boolean(config.sqs.queueUrl),
         },
         'Dependencias inicializadas',
       );
@@ -215,6 +286,9 @@ const createContainer = (config) => {
 
       stopPromise = (async () => {
         const closers = [() => scheduler.stop()];
+        if (sqsConsumer) {
+          closers.push(() => sqsConsumer.stop());
+        }
         if (kafkaConsumer) {
           closers.push(() => kafkaConsumer.stop());
         }
