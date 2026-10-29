@@ -3,6 +3,7 @@ const { Alert } = require('../../domain/entities/alert');
 const { Notification } = require('../../domain/entities/notification');
 const { AcknowledgementStatus, DeliveryStatus, Origin } = require('../../domain/enums');
 const { safeNotificationLogFields } = require('../shared/safe-log-fields');
+const { buildCreatedEvent } = require('../shared/notification-events');
 
 const PROCESSED_EVENT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -84,6 +85,14 @@ const createProcessDomainEventUseCase = ({
         return notification;
       });
       await transaction.notifications.createMany(notifications);
+      for (const notification of notifications) {
+        await transaction.outboxEvents.create(
+          buildCreatedEvent(notification, {
+            createdAt: now,
+            correlationId: envelope.correlation_id,
+          }),
+        );
+      }
       await transaction.processedEvents.create({
         event_id: envelope.event_id,
         event_type: envelope.event_type,

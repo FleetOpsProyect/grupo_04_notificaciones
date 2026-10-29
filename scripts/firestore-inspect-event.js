@@ -27,6 +27,15 @@ if (!eventId) {
         firestore.db.collection('notifications').where('event_id', '==', eventId).get(),
       ]);
 
+      const outbox = [];
+      for (const alert of alerts.docs) {
+        const snapshot = await firestore.db
+          .collection('outbox_events')
+          .where('data.alert_id', '==', alert.id)
+          .get();
+        outbox.push(...snapshot.docs.map(toJson));
+      }
+
       process.stdout.write(
         `${JSON.stringify(
           {
@@ -34,6 +43,7 @@ if (!eventId) {
             processed_event: toJson(processed),
             alerts: alerts.docs.map(toJson),
             notifications: notifications.docs.map(toJson),
+            outbox_events: outbox,
           },
           null,
           2,

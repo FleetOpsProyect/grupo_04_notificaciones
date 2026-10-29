@@ -181,10 +181,45 @@ const createInMemoryRepositories = (state = createInMemoryState()) => {
     async findById(eventId) {
       return state.outboxEvents.get(eventId) ?? null;
     },
-    async findPendingDue() {
-      return [];
+    async claimBatch(now, limit, leaseMs) {
+      const due = [...state.outboxEvents.values()]
+        .filter(
+          (record) =>
+            record.status === 'PENDING' &&
+            record.next_attempt_at !== null &&
+            record.next_attempt_at.getTime() <= now.getTime(),
+        )
+        .sort((left, right) => left.next_attempt_at - right.next_attempt_at)
+        .slice(0, limit);
+      const claimed = [];
+      for (const record of due) {
+        const updated = {
+          ...record,
+          publish_attempts: (record.publish_attempts ?? 0) + 1,
+          next_attempt_at: new Date(now.getTime() + leaseMs),
+        };
+        state.outboxEvents.set(record.event_id, updated);
+        claimed.push(updated);
+      }
+      return claimed;
     },
-    async markPublished() {},
+    async markPublished(eventId, publishedAt) {
+      const record = state.outboxEvents.get(eventId);
+      if (record) {
+        state.outboxEvents.set(eventId, {
+          ...record,
+          status: 'PUBLISHED',
+          published_at: publishedAt,
+          next_attempt_at: null,
+        });
+      }
+    },
+    async markFailed(eventId, nextAttemptAt) {
+      const record = state.outboxEvents.get(eventId);
+      if (record) {
+        state.outboxEvents.set(eventId, { ...record, next_attempt_at: nextAttemptAt });
+      }
+    },
   };
 
   return { alerts, notifications, processedEvents, outboxEvents };

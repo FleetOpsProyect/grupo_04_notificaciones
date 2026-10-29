@@ -70,3 +70,43 @@ describe('DispatchScheduler', () => {
     jest.useRealTimers();
   });
 });
+
+describe('OutboxScheduler', () => {
+  const { createOutboxScheduler } = require('../../src/adapters/in/scheduler/outbox.scheduler');
+
+  test('ejecuta un ciclo y registra el resultado', async () => {
+    const logger = { info: jest.fn(), error: jest.fn() };
+    const publishOutbox = jest.fn().mockResolvedValue({
+      claimed: 3,
+      published: 3,
+      failed: 0,
+      skipped: false,
+    });
+    const scheduler = createOutboxScheduler({ publishOutbox, intervalMs: 2000, logger });
+    await expect(scheduler.runOnce()).resolves.toMatchObject({ published: 3 });
+    expect(logger.info).toHaveBeenCalled();
+  });
+
+  test('captura errores y se detiene sin solapar', async () => {
+    let resolveFirst;
+    const publishOutbox = jest
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirst = resolve;
+          }),
+      )
+      .mockRejectedValueOnce(new Error('fallo'));
+    const logger = { info: jest.fn(), error: jest.fn() };
+    const scheduler = createOutboxScheduler({ publishOutbox, intervalMs: 2000, logger });
+    const first = scheduler.runOnce();
+    await Promise.resolve();
+    const second = scheduler.runOnce();
+    resolveFirst({ claimed: 0 });
+    await Promise.all([first, second]);
+    await expect(scheduler.runOnce()).resolves.toBeNull();
+    expect(logger.error).toHaveBeenCalled();
+    await scheduler.stop();
+  });
+});

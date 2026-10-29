@@ -24,6 +24,9 @@ const {
   createDispatchPendingNotificationsUseCase,
 } = require('../../src/application/use-cases/dispatch-pending-notifications.use-case');
 const {
+  createPublishOutboxEventsUseCase,
+} = require('../../src/application/use-cases/publish-outbox-events.use-case');
+const {
   createEnvRecipientDirectory,
 } = require('../../src/adapters/out/config/env-recipient.directory');
 
@@ -51,6 +54,7 @@ const createTestMetrics = () => ({
 const createTestContext = ({
   clock = createFixedClock(),
   emailSender = { send: jest.fn().mockResolvedValue({ provider_message_id: 'provider-1' }) },
+  eventPublisher = { publish: jest.fn().mockResolvedValue() },
   metrics = createTestMetrics(),
   logger = createSilentLogger(),
   unitOfWork = createInMemoryUnitOfWork(),
@@ -99,6 +103,7 @@ const createTestContext = ({
   const acknowledgeAlert = createAcknowledgeAlertUseCase({ unitOfWork, clock });
   const dispatchPendingNotifications = createDispatchPendingNotificationsUseCase({
     notificationRepository: repositories.notifications,
+    unitOfWork,
     recipientDirectory,
     emailSender,
     clock,
@@ -109,10 +114,20 @@ const createTestContext = ({
     retryDelaysMs: [30000, 120000, 600000],
     maxAttempts: 4,
   });
+  const publishOutboxEvents = createPublishOutboxEventsUseCase({
+    outboxRepository: repositories.outboxEvents,
+    eventPublisher,
+    clock,
+    logger,
+    batchSize: 20,
+    leaseMs: 30000,
+    retryDelaysMs: [5000, 30000, 120000],
+  });
 
   return {
     clock,
     emailSender,
+    eventPublisher,
     metrics,
     logger,
     unitOfWork,
@@ -128,6 +143,7 @@ const createTestContext = ({
       getNotification,
       acknowledgeAlert,
       dispatchPendingNotifications,
+      publishOutboxEvents,
     },
   };
 };

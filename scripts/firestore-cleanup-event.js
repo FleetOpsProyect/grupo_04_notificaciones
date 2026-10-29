@@ -15,19 +15,30 @@ if (eventIds.length === 0) {
           firestore.db.collection('alerts').where('event_id', '==', eventId).get(),
           firestore.db.collection('notifications').where('event_id', '==', eventId).get(),
         ]);
-        const batch = firestore.db.batch();
+        const outbox = [];
+        for (const alert of alerts.docs) {
+          const snapshot = await firestore.db
+            .collection('outbox_events')
+            .where('data.alert_id', '==', alert.id)
+            .get();
+          outbox.push(...snapshot.docs);
+        }
 
+        const batch = firestore.db.batch();
         for (const document of alerts.docs) {
           batch.delete(document.ref);
         }
         for (const document of notifications.docs) {
           batch.delete(document.ref);
         }
+        for (const document of outbox) {
+          batch.delete(document.ref);
+        }
         batch.delete(firestore.db.collection('processed_events').doc(eventId));
         await batch.commit();
 
         process.stdout.write(
-          `${eventId}: alerts=${alerts.size} notifications=${notifications.size} procesado=eliminado\n`,
+          `${eventId}: alerts=${alerts.size} notifications=${notifications.size} outbox=${outbox.length} procesado=eliminado\n`,
         );
       }
     } finally {

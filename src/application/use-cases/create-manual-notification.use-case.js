@@ -9,6 +9,7 @@ const {
 } = require('../../domain/enums');
 const { InvalidDataError } = require('../../domain/errors');
 const { buildManualNotificationTemplate } = require('../templates/manual-notification.template');
+const { buildCreatedEvent } = require('../shared/notification-events');
 const { formatBogotaIso } = require('../shared/time');
 
 const createCreateManualNotificationUseCase = ({
@@ -76,6 +77,9 @@ const createCreateManualNotificationUseCase = ({
     await unitOfWork.run(async (transaction) => {
       await transaction.alerts.create(alert);
       await transaction.notifications.createMany([notification]);
+      await transaction.outboxEvents.create(
+        buildCreatedEvent(notification, { createdAt: now, correlationId: input.correlation_id }),
+      );
     });
 
     metrics?.notificationsCreated?.inc({

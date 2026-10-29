@@ -1,4 +1,5 @@
 const { decideFailure } = require('../../domain/policies/dispatch.policy');
+const { buildFailedEvent, buildSentEvent } = require('../shared/notification-events');
 const { safeErrorFields } = require('../shared/safe-log-fields');
 
 const isCircuitOpen = (error) =>
@@ -8,6 +9,7 @@ const isCircuitOpen = (error) =>
 
 const createDispatchPendingNotificationsUseCase = ({
   notificationRepository,
+  unitOfWork,
   recipientDirectory,
   emailSender,
   clock,
@@ -18,6 +20,22 @@ const createDispatchPendingNotificationsUseCase = ({
   retryDelaysMs = [30000, 120000, 600000],
   maxAttempts = 4,
 }) => {
+  const persistSent = async (notification) => {
+    const event = buildSentEvent(notification, { createdAt: clock.now() });
+    await unitOfWork.run(async (transaction) => {
+      await transaction.notifications.markSent(notification);
+      await transaction.outboxEvents.create(event);
+    });
+  };
+
+  const persistFailed = async (notification) => {
+    const event = buildFailedEvent(notification, { createdAt: clock.now() });
+    await unitOfWork.run(async (transaction) => {
+      await transaction.notifications.markFailed(notification);
+      await transaction.outboxEvents.create(event);
+    });
+  };
+
   return async function dispatchPendingNotifications({ limit = batchSize } = {}) {
     const now = clock.now();
     const due = await notificationRepository.findDuePending(now, limit);
@@ -37,7 +55,7 @@ const createDispatchPendingNotificationsUseCase = ({
       const recipient = recipientDirectory.resolve(claimed.recipient_role, claimed);
       if (!recipient) {
         const failed = claimed.markFailed(now, 'RECIPIENT_NOT_CONFIGURED');
-        await notificationRepository.markFailed(failed);
+        await persistFailed(failed);
         result.failed += 1;
         metrics?.deliveryTotal?.inc({ result: 'FAILED' });
         logger?.warn(
@@ -55,7 +73,7 @@ const createDispatchPendingNotificationsUseCase = ({
           notificationId: claimed.notification_id,
         });
         const sent = claimed.markSent(clock.now(), response.provider_message_id);
-        await notificationRepository.markSent(sent);
+        await persistSent(sent);
         result.sent += 1;
         metrics?.deliveryTotal?.inc({ result: 'SENT' });
       } catch (error) {
@@ -90,7 +108,7 @@ const createDispatchPendingNotificationsUseCase = ({
 
         if (!isTransient || decision.final) {
           const failed = claimed.markFailed(now, failureCode, decision.attempts);
-          await notificationRepository.markFailed(failed);
+          await persistFailed(failed);
           result.failed += 1;
           metrics?.deliveryTotal?.inc({ result: 'FAILED' });
         } else {

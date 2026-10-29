@@ -1,5 +1,21 @@
 # Estado de implementación del arquetipo de Notificaciones (Fase D)
 
+> **Documento histórico (Fase D original, Kafka y contratos en español).**  
+> El estado vigente del arquetipo, con la migración a SNS/SQS y los contratos del DAS 1.1, está en
+> [`changelog-arquetipo-sqs-sns.md`](./changelog-arquetipo-sqs-sns.md).  
+> Este documento se conserva como evidencia de la primera implementación y **no debe usarse como referencia de contratos actuales**.
+
+## Actualización vigente (2026-10-29)
+
+- Broker: **Amazon SNS + SQS FIFO** (Kafka queda como modo alterno hasta la Fase 11).
+- Sobre estándar en inglés: `event_id, event_type, version, occurred_at, source, correlation_id, data`.
+- 7 handlers con aviso, incluidos incidente leve/grave y combustible.
+- API en inglés sin prefijo: `/notifications`, `/notifications/status`, `/notifications/{id}`, `/notifications/{id}/acknowledgement`.
+- Estados: `delivery_status` (`PENDING|SENT|FAILED`) y `acknowledgement_status` (`PENDING|ACKNOWLEDGED`).
+- Outbox operativo hacia `fleetops_notification_events` con 4 eventos `notification_*_event`.
+- `processed_events` con `expires_at` (TTL 30 días).
+- 179 pruebas pasando y lint limpio al 2026-10-29.
+
 **Fecha de corte:** 2026-10-25  
 **Alcance:** `notification-service/`  
 **Estado general:** arquetipo funcional mínimo implementado. Firestore real, Kafka local, flujo `evento -> Firestore -> scheduler -> correo console` y los 8 índices compuestos validados. Resend validado con servidor HTTP controlado; no se hizo envío real. No desplegado.

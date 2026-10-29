@@ -225,5 +225,6 @@ Notas:
 - Idempotencia con `processed_events` se mantiene.
 - El mensaje se borra de SQS solo tras el procesamiento exitoso.
 - Los fallos permanentes se publican en la DLQ (`notifications_dlq.fifo`) y luego se borran de la cola principal.
+- Los eventos propios (`notification_created_event`, `notification_sent_event`, `notification_failed_event`, `notification_acknowledged_event`) se guardan en `outbox_events` y un temporizador cada 2 s los publica en SNS (`fleetops_notification_events`, físico `.fifo`).
 - En LocalStack el topic SNS se crea con `FifoTopic=true`; en AWS real se requiere la misma configuración.
 - Si `BROKER_TYPE=sqs` y falta `SQS_QUEUE_URL`, el arranque falla de forma explícita.

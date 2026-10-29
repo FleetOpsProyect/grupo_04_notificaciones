@@ -1,5 +1,13 @@
 const { PublishCommand } = require('@aws-sdk/client-sns');
 
+const toMessageAttributes = (attributes = {}) =>
+  Object.fromEntries(
+    Object.entries(attributes).map(([name, value]) => [
+      name,
+      { DataType: 'String', StringValue: String(value) },
+    ]),
+  );
+
 const createSnsEventPublisher = ({ snsClient, topicArn }) => ({
   async publish(event, options = {}) {
     if (!topicArn) {
@@ -10,11 +18,15 @@ const createSnsEventPublisher = ({ snsClient, topicArn }) => ({
     const command = new PublishCommand({
       TopicArn: topicArn,
       Message: message,
-      MessageAttributes: options.messageAttributes || {},
+      ...(options.groupId ? { MessageGroupId: String(options.groupId) } : {}),
+      ...(options.deduplicationId
+        ? { MessageDeduplicationId: String(options.deduplicationId) }
+        : {}),
+      MessageAttributes: toMessageAttributes(options.messageAttributes),
     });
 
     await snsClient.send(command);
   },
 });
 
-module.exports = { createSnsEventPublisher };
+module.exports = { createSnsEventPublisher, toMessageAttributes };

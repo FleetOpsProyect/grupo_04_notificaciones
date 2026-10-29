@@ -9,6 +9,9 @@ const {
 const {
   createNotificationFirestoreRepository,
 } = require('../adapters/out/firestore/notification.firestore.repository');
+const {
+  createOutboxEventFirestoreRepository,
+} = require('../adapters/out/firestore/outbox-event.firestore.repository');
 const { createConsoleEmailSender } = require('../adapters/out/email/console-email-sender');
 const { createResendEmailSender } = require('../adapters/out/email/resend-email-sender');
 const {
@@ -27,6 +30,7 @@ const { createSqsDeadLetterPublisher } = require('../adapters/out/sqs/sqs-dead-l
 const { createSnsEventPublisher } = require('../adapters/out/sns/sns-event.publisher');
 const { createSqsEventConsumer } = require('../adapters/in/sqs/sqs-event.consumer');
 const { createDispatchScheduler } = require('../adapters/in/scheduler/dispatch.scheduler');
+const { createOutboxScheduler } = require('../adapters/in/scheduler/outbox.scheduler');
 const { createEventHandlerRegistry } = require('../application/handlers/event-handler.registry');
 const {
   createProcessDomainEventUseCase,
@@ -50,6 +54,9 @@ const {
   createDispatchPendingNotificationsUseCase,
 } = require('../application/use-cases/dispatch-pending-notifications.use-case');
 const {
+  createPublishOutboxEventsUseCase,
+} = require('../application/use-cases/publish-outbox-events.use-case');
+const {
   createNotificationController,
 } = require('../adapters/in/http/controllers/notification.controller');
 const { createApp } = require('../adapters/in/http/app');
@@ -65,6 +72,7 @@ const createContainer = (config) => {
 
   const alertRepository = createAlertFirestoreRepository(firestore.db);
   const notificationRepository = createNotificationFirestoreRepository(firestore.db);
+  const outboxEventRepository = createOutboxEventFirestoreRepository(firestore.db);
   const unitOfWork = createFirestoreUnitOfWork(firestore.db);
   const registry = createEventHandlerRegistry();
   const recipientDirectory = createEnvRecipientDirectory({ recipients: config.recipients });
@@ -110,6 +118,7 @@ const createContainer = (config) => {
   const acknowledgeAlert = createAcknowledgeAlertUseCase({ unitOfWork, clock });
   const dispatchPendingNotifications = createDispatchPendingNotificationsUseCase({
     notificationRepository,
+    unitOfWork,
     recipientDirectory,
     emailSender,
     clock,
@@ -200,6 +209,23 @@ const createContainer = (config) => {
         : null;
   }
 
+  const publishOutboxEvents = createPublishOutboxEventsUseCase({
+    outboxRepository: outboxEventRepository,
+    eventPublisher,
+    clock,
+    logger,
+    batchSize: config.outbox.batchSize,
+    leaseMs: config.outbox.leaseMs,
+    retryDelaysMs: config.outbox.retryDelaysMs,
+    source: config.serviceName,
+  });
+
+  const outboxScheduler = createOutboxScheduler({
+    publishOutbox: () => publishOutboxEvents(),
+    intervalMs: config.outbox.intervalMs,
+    logger,
+  });
+
   const readiness = createReadiness({
     databaseCheck: () => firestore.databaseCheck(),
     brokerCheck:
@@ -248,6 +274,7 @@ const createContainer = (config) => {
     firestore,
     emailSender,
     unitOfWork,
+    outboxEventRepository,
     broker: {
       type: brokerType,
       deadLetterPublisher,
@@ -261,15 +288,20 @@ const createContainer = (config) => {
       getNotification,
       acknowledgeAlert,
       dispatchPendingNotifications,
+      publishOutboxEvents,
     },
     app,
     scheduler,
+    outboxScheduler,
     async start() {
       if (started) {
         return;
       }
       started = true;
       scheduler.start();
+      if (eventPublisher) {
+        outboxScheduler.start();
+      }
       if (brokerType === 'sqs') {
         if (sqsConsumer) {
           await sqsConsumer.start();
@@ -296,7 +328,7 @@ const createContainer = (config) => {
       }
 
       stopPromise = (async () => {
-        const closers = [() => scheduler.stop()];
+        const closers = [() => scheduler.stop(), () => outboxScheduler.stop()];
         if (sqsConsumer) {
           closers.push(() => sqsConsumer.stop());
         }

@@ -1,5 +1,10 @@
 # Cambios de integración con Kafka local
 
+> **Documento histórico.** Kafka fue reemplazado por Amazon SNS + SQS FIFO (DAS 1.1).
+> El adaptador y la suite de Kafka se eliminarán en la Fase 11.  
+> Para el estado vigente, ver [`changelog-arquetipo-sqs-sns.md`](./changelog-arquetipo-sqs-sns.md)
+> y [`plan-cambio-kafka-a-sqs-sns.md`](./plan-cambio-kafka-a-sqs-sns.md).
+
 **Fecha:** 2026-10-25  
 **Alcance:** `notification-service/` y documentación de Fase D  
 **Objetivo:** dejar registrada la integración de Kafka local con Docker, la configuración usada, las herramientas añadidas, la evidencia de validación y lo que sigue pendiente.

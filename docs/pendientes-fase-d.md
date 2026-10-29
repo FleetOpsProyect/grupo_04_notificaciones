@@ -1,5 +1,18 @@
 # Pendientes del arquetipo de Notificaciones (Fase D)
 
+> **Documento histórico.** Los pendientes vigentes están en
+> [`changelog-arquetipo-sqs-sns.md`](./changelog-arquetipo-sqs-sns.md), sección 7.  
+> Este documento conserva el cierre de la Fase D original (Kafka, contratos en español).
+
+## Resumen vigente de pendientes (2026-10-29)
+
+1. Habilitar TTL de Firestore sobre `processed_events.expires_at` (30 días).
+2. Fase 9: fidelidad del consumidor SQS (visibilidad 2/10/30 s, `maxReceiveCount=4`, atributos de DLQ).
+3. Fase 10: suite de integración SQS contra LocalStack.
+4. Fase 11: eliminar Kafka (`kafkajs`, adaptadores, `KAFKA_*`, `BROKER_TYPE`, scripts y suite).
+5. CI/CD: job de integración con LocalStack, Quality Gate de Sonar y despliegue a EC2.
+6. Confirmar con DevOps topics de Mantenimiento/Combustible y el nombre `fleetops_assigment_events`.
+
 **Fecha de corte:** 2026-10-25  
 **Documento de estado:** [`estado-implementacion-fase-d.md`](./estado-implementacion-fase-d.md)  
 **Cambios de integración Kafka local:** [`cambios-integracion-kafka-local.md`](./cambios-integracion-kafka-local.md)  

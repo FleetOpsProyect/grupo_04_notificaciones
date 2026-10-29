@@ -123,6 +123,11 @@ const envSchema = z
     DISPATCH_BATCH_SIZE: integer(20, 1),
     DISPATCH_LEASE_MS: integer(60000, 1),
 
+    OUTBOX_INTERVAL_MS: integer(2000, 1),
+    OUTBOX_BATCH_SIZE: integer(20, 1),
+    OUTBOX_LEASE_MS: integer(30000, 1),
+    OUTBOX_RETRY_DELAYS_MS: z.string().default('5000,30000,120000'),
+
     CONSUMER_RETRY_DELAYS_MS: z.string().default('2000,10000,30000'),
     CONSUMER_HEARTBEAT_MS: integer(3000, 1),
 
@@ -173,11 +178,15 @@ const loadConfig = (environment = process.env) => {
   const value = parsed.data;
   const retryDelays = csv(value.EMAIL_RETRY_DELAYS_MS).map(Number);
   const consumerRetryDelays = csv(value.CONSUMER_RETRY_DELAYS_MS).map(Number);
+  const outboxRetryDelays = csv(value.OUTBOX_RETRY_DELAYS_MS).map(Number);
   if (retryDelays.some((item) => !Number.isFinite(item) || item < 0)) {
     throw new Error('EMAIL_RETRY_DELAYS_MS contiene valores inválidos');
   }
   if (consumerRetryDelays.some((item) => !Number.isFinite(item) || item < 0)) {
     throw new Error('CONSUMER_RETRY_DELAYS_MS contiene valores inválidos');
+  }
+  if (outboxRetryDelays.some((item) => !Number.isFinite(item) || item < 0)) {
+    throw new Error('OUTBOX_RETRY_DELAYS_MS contiene valores inválidos');
   }
 
   return Object.freeze({
@@ -255,6 +264,12 @@ const loadConfig = (environment = process.env) => {
       intervalMs: value.DISPATCH_INTERVAL_MS,
       batchSize: value.DISPATCH_BATCH_SIZE,
       leaseMs: value.DISPATCH_LEASE_MS,
+    }),
+    outbox: Object.freeze({
+      intervalMs: value.OUTBOX_INTERVAL_MS,
+      batchSize: value.OUTBOX_BATCH_SIZE,
+      leaseMs: value.OUTBOX_LEASE_MS,
+      retryDelaysMs: Object.freeze(outboxRetryDelays),
     }),
     recipients: Object.freeze({
       FLEET_ADMINISTRATOR: value.RECIPIENT_FLEET_ADMINISTRATOR,
