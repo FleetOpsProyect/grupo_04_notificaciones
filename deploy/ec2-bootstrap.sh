@@ -15,10 +15,15 @@ else
   sudo systemctl enable --now docker
 fi
 
-if ! docker compose version >/dev/null 2>&1; then
-  echo "Docker Compose plugin no encontrado. Instálelo antes de continuar." >&2
+if docker compose version >/dev/null 2>&1; then
+  COMPOSE_CMD="docker compose"
+elif docker-compose version >/dev/null 2>&1; then
+  COMPOSE_CMD="docker-compose"
+else
+  echo "Docker Compose no encontrado. Instálelo antes de continuar." >&2
   exit 1
 fi
+echo "Docker Compose detectado: ${COMPOSE_CMD}"
 
 sudo mkdir -p "${SECRETS_DIR}"
 sudo chown -R ec2-user:ec2-user "${APP_DIR}"

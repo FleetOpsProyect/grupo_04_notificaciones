@@ -178,7 +178,7 @@ El CD se dispara con **push a `main`** (después del merge `develop → main`) o
 
 1. `verify`: `npm ci`, lint, formato, OpenAPI y cobertura.
 2. `build`: imagen Docker `linux/amd64` publicada en Docker Hub con tags `<sha>` y `latest`.
-3. `deploy`: copia `docker-compose.prod.yml` a `/opt/fleetops`, ejecuta `docker compose pull/up` y verifica `/health` y `/ready` desde la propia instancia. Si falla, vuelve a la imagen anterior.
+3. `deploy`: copia `docker-compose.prod.yml` a `/opt/fleetops`, ejecuta `docker-compose pull/up` y verifica `/health` y `/ready` desde la propia instancia. Si falla, vuelve a la imagen anterior.
 
 ### Secretos en GitHub
 
@@ -191,7 +191,7 @@ El CD se dispara con **push a `main`** (después del merge `develop → main`) o
 | `EC2_SSH_KEY`        | contenido del `.pem`                 |
 | `EC2_PORT`           | opcional, `22` por defecto           |
 
-El repositorio de Docker Hub es público, por lo que la EC2 no necesita `docker login`.
+El repositorio de Docker Hub es público, por lo que la EC2 no necesita `docker login`. La instancia usa el binario `docker-compose` (con guion), no el plugin `docker compose`.
 
 ### Preparar la EC2 (Amazon Linux 2023)
 
@@ -238,7 +238,7 @@ La aplicación usa el rol de instancia; **no** configure `AWS_ACCESS_KEY_ID` ni 
 
 1. Abrir PR `develop → main` y mergear.
 2. Verificar la ejecución del workflow CD.
-3. Comprobar `docker compose ps`, `/health` y `/ready` en la instancia.
+3. Comprobar `docker-compose ps`, `/health` y `/ready` en la instancia.
 4. `.current_image` guarda el tag desplegado y `.previous_image` el anterior; el CD hace rollback automático si el smoke falla.
 
 ## Documentación relacionada

@@ -6,14 +6,17 @@
 
 ## Resumen vigente de pendientes (2026-10-29)
 
-1. Habilitar TTL de Firestore sobre `processed_events.expires_at` (30 días).
-5. CI/CD: job de integración con LocalStack, Quality Gate de Sonar y despliegue a EC2.
-6. Confirmar con DevOps topics de Mantenimiento/Combustible y el nombre `fleetops_assigment_events`.
-
-**Fecha de corte:** 2026-10-25  
-**Documento de estado:** [`estado-implementacion-fase-d.md`](./estado-implementacion-fase-d.md)  
-**Cambios de integración Kafka local:** [`cambios-integracion-kafka-local.md`](./cambios-integracion-kafka-local.md)  
-**Objetivo:** dejar explícito qué falta para considerar el arquetipo listo para integración real, aceptación y una fase posterior de despliegue.
+1. **Suscripciones de productores**: la cola no recibe eventos hasta que existan los topics de Incidentes, Asignaciones, Documentación, Mantenimiento y Combustible.
+2. **Resend real**: dominio verificado, API key y smoke; hoy `EMAIL_PROVIDER=console`.
+3. Habilitar TTL de Firestore sobre `processed_events.expires_at` (30 días).
+4. Reactivar reglas de rama en `develop` y `main` con checks requeridos y 1 aprobación.
+5. Definir `develop` como rama principal del repo y de SonarCloud.
+6. Revisar la vulnerabilidad baja de Dependabot.
+7. Endurecer seguridad: SSH `0.0.0.0/0` → SSM o IP restringida; valorar imagen privada en Docker Hub.
+8. Monitoreo (Prometheus, Grafana, node_exporter) y alertas.
+9. API Gateway + Cognito para acceso externo.
+10. Rotación de secretos y validación multi-instancia de los schedulers.
+11. Job opcional de integración Firestore en CI.
 
 ## 1. Prioridades
 
