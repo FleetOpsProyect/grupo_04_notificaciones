@@ -1,20 +1,46 @@
-name: CI
+name: CI - Integración Continua
 
 on:
-  push:
-    branches: [main, develop]
   pull_request:
+    branches: [develop]
+  workflow_dispatch:
 
 permissions:
   contents: read
+  pull-requests: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  quality:
-    name: Lint, formato, OpenAPI y pruebas
+  ci:
+    name: Build, Test y Calidad
     runs-on: ubuntu-latest
+    services:
+      localstack:
+        image: localstack/localstack:3.7.2
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: sqs,sns
+          DEBUG: 0
+          AWS_DEFAULT_REGION: us-east-1
+        options: >-
+          --health-cmd "curl -f http://localhost:4566/_localstack/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      AWS_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://127.0.0.1:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
     steps:
-      - name: Checkout
+      - name: Checkout del código
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
@@ -25,17 +51,20 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
-      - name: Lint
+      - name: Lint (ESLint)
         run: npm run lint
 
-      - name: Formato
+      - name: Formato (Prettier)
         run: npm run format:check
 
       - name: Validar OpenAPI
         run: npm run openapi:validate
 
-      - name: Pruebas con cobertura
+      - name: Pruebas unitarias, API y E2E con cobertura
         run: npm run test:coverage
+
+      - name: Pruebas de integración SQS contra LocalStack
+        run: npm run test:integration
 
       - name: Publicar reporte de cobertura
         if: always()
@@ -44,3 +73,26 @@ jobs:
           name: coverage
           path: coverage/
           if-no-files-found: ignore
+          retention-days: 7
+
+  sonar:
+    name: SonarCloud
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Descargar reporte de cobertura
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage
+          path: coverage
+
+      - name: Análisis SonarCloud y Quality Gate
+        uses: SonarSource/sonarqube-scan-action@v8
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
