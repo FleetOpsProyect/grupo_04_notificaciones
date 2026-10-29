@@ -119,8 +119,8 @@ jobs:
             rollback() {
               if [ -n "${PREVIOUS}" ]; then
                 echo "Rollback a ${PREVIOUS}" >&2
-                IMAGE_TAG="${PREVIOUS}" docker compose -f docker-compose.prod.yml pull || true
-                IMAGE_TAG="${PREVIOUS}" docker compose -f docker-compose.prod.yml up -d --remove-orphans || true
+                IMAGE_TAG="${PREVIOUS}" docker-compose -f docker-compose.prod.yml pull || true
+                IMAGE_TAG="${PREVIOUS}" docker-compose -f docker-compose.prod.yml up -d --remove-orphans || true
                 echo "${IMAGE_TAG}" > .previous_image
                 echo "${PREVIOUS}" > .current_image
                 echo "Rollback completado" >&2
@@ -134,10 +134,10 @@ jobs:
               echo "${PREVIOUS}" > .previous_image
             fi
 
-            IMAGE_TAG="${IMAGE_TAG}" docker compose -f docker-compose.prod.yml pull
-            if ! IMAGE_TAG="${IMAGE_TAG}" docker compose -f docker-compose.prod.yml up -d --remove-orphans; then
-              echo "Falló docker compose up; iniciando rollback" >&2
-              docker compose -f docker-compose.prod.yml logs --tail=100 notification-service || true
+            IMAGE_TAG="${IMAGE_TAG}" docker-compose -f docker-compose.prod.yml pull
+            if ! IMAGE_TAG="${IMAGE_TAG}" docker-compose -f docker-compose.prod.yml up -d --remove-orphans; then
+              echo "Falló docker-compose up; iniciando rollback" >&2
+              docker-compose -f docker-compose.prod.yml logs --tail=100 notification-service || true
               rollback
               exit 1
             fi
@@ -160,6 +160,6 @@ jobs:
             fi
 
             echo "Smoke falló; iniciando rollback" >&2
-            docker compose -f docker-compose.prod.yml logs --tail=100 notification-service || true
+            docker-compose -f docker-compose.prod.yml logs --tail=100 notification-service || true
             rollback
             exit 1
