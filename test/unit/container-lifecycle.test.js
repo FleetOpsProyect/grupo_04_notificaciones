@@ -39,6 +39,7 @@ const { createKafkaClient } = require('../../src/adapters/out/kafka/kafka.client
 const buildConfig = (overrides = {}) => ({
   ...baseConfig,
   logLevel: 'silent',
+  broker: { type: 'kafka' },
   kafka: { ...baseConfig.kafka, enabled: false },
   dispatch: { ...baseConfig.dispatch, intervalMs: 60000 },
   enableSwagger: false,

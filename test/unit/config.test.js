@@ -1,5 +1,5 @@
 const { loadConfig } = require('../../src/config/env.schema');
-const { parseEventEnvelope } = require('../../src/adapters/in/kafka/event-envelope');
+const { parseEventEnvelope } = require('../../src/adapters/in/shared/event-envelope');
 
 describe('configuración', () => {
   test('aplica valores por defecto y normaliza listas', () => {

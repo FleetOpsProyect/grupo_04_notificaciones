@@ -1,6 +1,7 @@
 const { randomUUID } = require('node:crypto');
 const { config } = require('../src/config/env');
 const { createKafkaClient } = require('../src/adapters/out/kafka/kafka.client');
+const { buildScenarios } = require('./lib/event-scenarios');
 
 const args = process.argv.slice(2);
 
@@ -13,95 +14,18 @@ const getArg = (name) => {
 const scenario = getArg('scenario') ?? args.find((item) => !item.startsWith('--')) ?? 'incident';
 const eventId = getArg('event-id') ?? randomUUID();
 const correlationId = getArg('correlation-id') ?? randomUUID();
-const now = new Date().toISOString();
 
-const baseEnvelope = {
-  evento_id: eventId,
-  version: 1,
-  fecha_evento: now,
-  origen: 'kafka-local-smoke',
-  correlation_id: correlationId,
-};
+const scenarios = buildScenarios({ eventId, correlationId, origen: 'kafka-local-smoke' });
 
-const scenarios = {
-  incident: {
-    topic: config.kafka.topics.incident,
-    envelope: {
-      ...baseEnvelope,
-      tipo_evento: 'IncidenteReportadoEvent',
-      datos: {
-        incidente_id: `inc-${eventId}`,
-        asignacion_id: `asg-${eventId}`,
-        vehiculo_id: 'veh-smoke',
-        conductor_id: 'con-smoke',
-        tipo_incidente: 'FALLA_MECANICA',
-        requiere_asistencia: true,
-        fecha_reporte: now,
-      },
-    },
-  },
-  assignment: {
-    topic: config.kafka.topics.assignment,
-    envelope: {
-      ...baseEnvelope,
-      tipo_evento: 'AsignacionInterrumpidaEvent',
-      datos: {
-        empleado_email: 'conductor.prueba@example.invalid',
-        resultado: 'MANUAL_REQUERIDA',
-        asignacion_id: `asg-${eventId}`,
-      },
-    },
-  },
-  'document-expiring': {
-    topic: config.kafka.topics.document,
-    envelope: {
-      ...baseEnvelope,
-      tipo_evento: 'DocumentoProximoAVencerEvent',
-      datos: {
-        dias_restantes: 30,
-        documento_id: `doc-${eventId}`,
-        entidad_tipo: 'VEHICULO',
-      },
-    },
-  },
-  'document-expired': {
-    topic: config.kafka.topics.document,
-    envelope: {
-      ...baseEnvelope,
-      tipo_evento: 'DocumentoVencidoEvent',
-      datos: {
-        documento_id: `doc-${eventId}`,
-        entidad_tipo: 'VEHICULO',
-      },
-    },
-  },
-  maintenance: {
-    topic: config.kafka.topics.maintenance,
-    envelope: {
-      ...baseEnvelope,
-      tipo_evento: 'MantenimientoPreventivoRequeridoEvent',
-      datos: {
-        kilometros: 150000,
-        vehiculo_id: 'veh-smoke',
-        mantenimiento_id: `mant-${eventId}`,
-      },
-    },
-  },
-  'invalid-envelope': {
-    topic: config.kafka.topics.incident,
-    raw: '{"evento_id":"no-es-uuid","tipo_evento":"IncidenteReportadoEvent"}',
-  },
-  'invalid-data': {
-    topic: config.kafka.topics.incident,
-    envelope: {
-      ...baseEnvelope,
-      tipo_evento: 'IncidenteReportadoEvent',
-      datos: {
-        incidente_id: `inc-${eventId}`,
-      },
-    },
-  },
-};
+const TOPIC_BY_SCENARIO = Object.freeze({
+  incident: config.kafka.topics.incident,
+  assignment: config.kafka.topics.assignment,
+  'document-expiring': config.kafka.topics.document,
+  'document-expired': config.kafka.topics.document,
+  maintenance: config.kafka.topics.maintenance,
+  'invalid-envelope': config.kafka.topics.incident,
+  'invalid-data': config.kafka.topics.incident,
+});
 
 const selected = scenarios[scenario];
 
@@ -111,6 +35,8 @@ if (!selected) {
   );
   process.exitCode = 1;
 } else {
+  const topic = TOPIC_BY_SCENARIO[scenario];
+
   const main = async () => {
     const kafka = createKafkaClient({
       ...config.kafka,
@@ -122,7 +48,7 @@ if (!selected) {
     try {
       await producer.connect();
       await producer.send({
-        topic: selected.topic,
+        topic,
         messages: [
           {
             key: selected.envelope?.evento_id ?? `invalid-${Date.now()}`,
@@ -139,7 +65,7 @@ if (!selected) {
       `${JSON.stringify(
         {
           scenario,
-          topic: selected.topic,
+          topic,
           event_id: selected.envelope?.evento_id ?? null,
           correlation_id: selected.envelope?.correlation_id ?? null,
         },

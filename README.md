@@ -198,10 +198,10 @@ El servicio soporta ambos brokers mediante `BROKER_TYPE`:
 # Levantar LocalStack
 docker compose -f docker-compose.localstack.yml up -d
 
-# Crear colas/topics
+# Crear colas FIFO y topic SNS FIFO
 npm run sqs:setup:localstack
 
-# Configurar .env
+# Configurar .env con las variables que imprime el script
 BROKER_TYPE=sqs
 AWS_REGION=us-east-1
 AWS_ENDPOINT_URL=http://localhost:4566
@@ -213,9 +213,17 @@ SNS_NOTIFICATION_TOPIC_ARN=...
 
 # Arrancar servicio
 npm start
+
+# Publicar eventos de prueba (mismos escenarios que Kafka)
+npm run sqs:publish -- incident
+npm run sqs:publish -- invalid-envelope
+npm run sqs:publish -- incident --event-id=<uuid> --dedup-id=<otro>
 ```
 
 Notas:
-- El núcleo no cambia; solo adaptadores (hexagonal)
-- Idempotencia con `processed_events` se mantiene
-- Mensajes se borran solo tras procesamiento exitoso
+- El núcleo no cambia; solo adaptadores (hexagonal).
+- Idempotencia con `processed_events` se mantiene.
+- El mensaje se borra de SQS solo tras el procesamiento exitoso.
+- Los fallos permanentes se publican en la DLQ (`notifications_dlq.fifo`) y luego se borran de la cola principal.
+- En LocalStack el topic SNS se crea con `FifoTopic=true`; en AWS real se requiere la misma configuración.
+- Si `BROKER_TYPE=sqs` y falta `SQS_QUEUE_URL`, el arranque falla de forma explícita.

@@ -1,4 +1,4 @@
-const { parseEventEnvelope } = require('../kafka/event-envelope');
+const { parseEventEnvelope } = require('../shared/event-envelope');
 
 const mapSqsMessageToEnvelope = (message) => {
   if (!message) {

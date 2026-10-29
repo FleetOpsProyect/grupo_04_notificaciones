@@ -10,7 +10,13 @@ const createSqsClient = (config = {}) => {
   }
 
   if (config.credentials) {
-    clientConfig.credentials = config.credentials;
+    clientConfig.credentials = {
+      accessKeyId: config.credentials.accessKeyId,
+      secretAccessKey: config.credentials.secretAccessKey,
+      ...(config.credentials.sessionToken
+        ? { sessionToken: config.credentials.sessionToken }
+        : {}),
+    };
   }
 
   const client = new SQSClient(clientConfig);

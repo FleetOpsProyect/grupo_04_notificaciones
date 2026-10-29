@@ -77,6 +77,7 @@ const createSqsEventConsumer = ({
           QueueUrl: queueUrl,
           MaxNumberOfMessages: sqsConfig.maxNumberOfMessages || 10,
           WaitTimeSeconds: sqsConfig.waitTimeSeconds || 20,
+          VisibilityTimeout: sqsConfig.visibilityTimeoutSeconds,
           MessageAttributeNames: ['All'],
           AttributeNames: ['All'],
         });

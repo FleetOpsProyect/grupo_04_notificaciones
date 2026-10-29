@@ -28,7 +28,8 @@
     "firestore:event": "node scripts/firestore-inspect-event.js",
     "firestore:cleanup": "node scripts/firestore-cleanup-event.js",
     "firestore:indexes": "node scripts/firestore-indexes.js",
-    "sqs:setup:localstack": "node scripts/sqs-setup-localstack.js"
+    "sqs:setup:localstack": "node scripts/sqs-setup-localstack.js",
+    "sqs:publish": "node scripts/sqs-publish.js"
   },
   "dependencies": {
     "@apidevtools/swagger-parser": "13.1.0",

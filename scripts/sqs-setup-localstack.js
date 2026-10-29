@@ -1,55 +1,85 @@
-const { SQSClient, CreateQueueCommand } = require('@aws-sdk/client-sqs');
+const {
+  SQSClient,
+  CreateQueueCommand,
+  GetQueueAttributesCommand,
+  SetQueueAttributesCommand,
+} = require('@aws-sdk/client-sqs');
 const { SNSClient, CreateTopicCommand } = require('@aws-sdk/client-sns');
 
 const region = process.env.AWS_REGION || 'us-east-1';
-const endpoint = process.env.AWS_ENDPOINT_URL || 'http://localhost:4566';
+const endpoint = process.env.AWS_ENDPOINT_URL || 'http://127.0.0.1:4566';
+const credentials = { accessKeyId: 'test', secretAccessKey: 'test' };
 
-const sqs = new SQSClient({ region, endpoint, credentials: { accessKeyId: 'test', secretAccessKey: 'test' } });
-const sns = new SNSClient({ region, endpoint, credentials: { accessKeyId: 'test', secretAccessKey: 'test' } });
+const sqs = new SQSClient({ region, endpoint, credentials });
+const sns = new SNSClient({ region, endpoint, credentials });
 
-async function ensureQueue(name, attributes = {}) {
-  try {
-    const res = await sqs.send(new CreateQueueCommand({ QueueName: name, Attributes: attributes }));
-    return res.QueueUrl;
-  } catch (error) {
-    console.error('Error creando cola', name, error.message);
-    throw error;
-  }
-}
+const ensureQueue = async (name, attributes = {}) => {
+  const res = await sqs.send(new CreateQueueCommand({ QueueName: name, Attributes: attributes }));
+  return res.QueueUrl;
+};
 
-async function ensureTopic(name) {
-  try {
-    const res = await sns.send(new CreateTopicCommand({ Name: name }));
-    return res.TopicArn;
-  } catch (error) {
-    console.error('Error creando topic', name, error.message);
-    throw error;
-  }
-}
+const getQueueArn = async (queueUrl) => {
+  const res = await sqs.send(
+    new GetQueueAttributesCommand({ QueueUrl: queueUrl, AttributeNames: ['QueueArn'] }),
+  );
+  return res.Attributes.QueueArn;
+};
 
-async function main() {
+const ensureTopic = async (name) => {
+  const res = await sns.send(
+    new CreateTopicCommand({
+      Name: name,
+      Attributes: {
+        FifoTopic: 'true',
+        ContentBasedDeduplication: 'true',
+      },
+    }),
+  );
+  return res.TopicArn;
+};
+
+const main = async () => {
   console.log('Creando recursos SQS/SNS en LocalStack...');
+
   const dlqUrl = await ensureQueue('notifications_dlq.fifo', {
     FifoQueue: 'true',
     ContentBasedDeduplication: 'true',
   });
+  const dlqArn = await getQueueArn(dlqUrl);
+
   const queueUrl = await ensureQueue('notifications_queue.fifo', {
     FifoQueue: 'true',
     ContentBasedDeduplication: 'true',
-    RedrivePolicy: JSON.stringify({
-      deadLetterTargetArn: dlqUrl.replace('http://localhost:4566/000000000000/', 'arn:aws:sqs:us-east-1:000000000000:').replace('.fifo', '.fifo'), // simple
-      maxReceiveCount: 5,
-    }),
+    VisibilityTimeout: '30',
   });
-  const topicArn = await ensureTopic('fleetops-notifications.fifo'); // SNS FIFO requiere .fifo
-  
-  console.log('DLQ_URL=' + dlqUrl);
-  console.log('SQS_QUEUE_URL=' + queueUrl);
-  console.log('SNS_NOTIFICATION_TOPIC_ARN=' + topicArn);
-  console.log('\nCopia estas variables a tu .env para usar con LocalStack');
-}
 
-main().catch((err) => {
-  console.error(err);
+  await sqs.send(
+    new SetQueueAttributesCommand({
+      QueueUrl: queueUrl,
+      Attributes: {
+        RedrivePolicy: JSON.stringify({
+          deadLetterTargetArn: dlqArn,
+          maxReceiveCount: 5,
+        }),
+      },
+    }),
+  );
+
+  const topicArn = await ensureTopic('fleetops-notifications.fifo');
+
+  console.log('\n=== Recursos creados ===');
+  console.log('BROKER_TYPE=sqs');
+  console.log(`AWS_REGION=${region}`);
+  console.log(`AWS_ENDPOINT_URL=${endpoint}`);
+  console.log('AWS_ACCESS_KEY_ID=test');
+  console.log('AWS_SECRET_ACCESS_KEY=test');
+  console.log(`SQS_QUEUE_URL=${queueUrl}`);
+  console.log(`SQS_DLQ_URL=${dlqUrl}`);
+  console.log(`SNS_NOTIFICATION_TOPIC_ARN=${topicArn}`);
+  console.log('\nCopia estas variables a tu .env');
+};
+
+main().catch((error) => {
+  console.error(error);
   process.exit(1);
 });

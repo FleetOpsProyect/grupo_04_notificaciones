@@ -1,7 +1,7 @@
 const { InvalidDataError, ServiceUnavailableError } = require('../../../domain/errors');
 const { safeErrorFields } = require('../../../application/shared/safe-log-fields');
 const { runWithContext } = require('../../../observability/request-context');
-const { parseEventEnvelope } = require('./event-envelope');
+const { parseEventEnvelope } = require('../shared/event-envelope');
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 

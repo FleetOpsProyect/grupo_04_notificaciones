@@ -15,9 +15,16 @@ const createSqsDeadLetterPublisher = ({ sqsClient, dlqUrl, clock }) => ({
       original_message: originalMessage?.Body ?? null,
     };
 
+    const failedAt = payload.failed_at;
+    const groupId =
+      context.event_id ?? originalMessage?.MessageId ?? originalMessage?.ReceiptHandle ?? 'dlq';
+    const dedupId = `${groupId}-${failedAt}-${reason ?? 'UNKNOWN'}`;
+
     const command = new SendMessageCommand({
       QueueUrl: dlqUrl,
       MessageBody: JSON.stringify(payload),
+      MessageGroupId: String(groupId),
+      MessageDeduplicationId: dedupId,
       MessageAttributes: {
         reason: {
           DataType: 'String',

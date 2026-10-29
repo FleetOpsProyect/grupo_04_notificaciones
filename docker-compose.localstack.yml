@@ -1,25 +1,17 @@
-version: '3.8'
-
 services:
   localstack:
     image: localstack/localstack:3.7.2
     container_name: fleetops-localstack
     ports:
       - "4566:4566"
-      - "4571:4571"
     environment:
       - SERVICES=sqs,sns
       - DEBUG=0
       - AWS_DEFAULT_REGION=us-east-1
-      - DATA_DIR=/var/lib/localstack/data
-    volumes:
-      - "localstack-data:/var/lib/localstack"
-      - "/var/run/docker.sock:/var/run/docker.sock"
+      - PERSISTENCE=0
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-
-volumes:
-  localstack-data:
+      retries: 10
+    restart: unless-stopped

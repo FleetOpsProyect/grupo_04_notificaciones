@@ -141,6 +141,13 @@ const envSchema = z
         message: 'RESEND_API_KEY es obligatoria cuando EMAIL_PROVIDER=resend',
       });
     }
+    if (value.BROKER_TYPE === 'sqs' && !value.SQS_QUEUE_URL) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['SQS_QUEUE_URL'],
+        message: 'SQS_QUEUE_URL es obligatoria cuando BROKER_TYPE=sqs',
+      });
+    }
     if (value.KAFKA_SASL_MECHANISM && (!value.KAFKA_SASL_USERNAME || !value.KAFKA_SASL_PASSWORD)) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
