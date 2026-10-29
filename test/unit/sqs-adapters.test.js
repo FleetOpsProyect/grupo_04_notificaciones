@@ -87,35 +87,69 @@ describe('Adaptador de entrada SQS', () => {
 });
 
 describe('Publicador SQS de DLQ', () => {
-  test('publica con MessageGroupId y deduplicación obligatorios para FIFO', async () => {
-    const send = jest.fn().mockResolvedValue({});
-    const clock = { now: () => new Date('2026-10-28T15:00:00.000Z') };
-    const publisher = createSqsDeadLetterPublisher({
+  const createPublisher = (send) =>
+    createSqsDeadLetterPublisher({
       sqsClient: { send },
       dlqUrl: 'http://localhost:4566/000000000000/notifications_dlq.fifo',
-      clock,
+      clock: { now: () => new Date('2026-10-28T15:00:00.000Z') },
     });
+
+  test('conserva cuerpo y atributos originales y añade error_reason/receive_count', async () => {
+    const send = jest.fn().mockResolvedValue({});
+    const publisher = createPublisher(send);
 
     await publisher.publish({
-      originalMessage: { Body: '{"evento_id":"x"}', MessageId: 'msg-1' },
+      originalMessage: {
+        MessageId: 'msg-1',
+        Body: '{"event_id":"x"}',
+        Attributes: { MessageGroupId: 'group-1' },
+        MessageAttributes: {
+          event_type: { DataType: 'String', StringValue: 'severe_incident_reported_event' },
+        },
+      },
       reason: 'INVALID_ENVELOPE',
       error: { code: 'INVALID_DATA', message: 'Sobre inválido' },
-      context: { event_id: 'evt-1' },
+      context: { event_id: 'evt-1', receive_count: 2 },
     });
 
-    expect(send).toHaveBeenCalledTimes(1);
-    const command = send.mock.calls[0][0];
-    const input = command.input;
-
+    const input = send.mock.calls[0][0].input;
     expect(input.QueueUrl).toContain('notifications_dlq.fifo');
-    expect(input.MessageGroupId).toBe('evt-1');
-    expect(input.MessageDeduplicationId).toContain('evt-1');
+    expect(input.MessageBody).toBe('{"event_id":"x"}');
+    expect(input.MessageGroupId).toBe('group-1');
+    expect(input.MessageDeduplicationId).toBe('msg-1-2-INVALID_ENVELOPE');
+    expect(input.MessageAttributes.event_type.StringValue).toBe(
+      'severe_incident_reported_event',
+    );
+    expect(input.MessageAttributes.error_reason.StringValue).toBe('INVALID_ENVELOPE');
+    expect(input.MessageAttributes.receive_count).toEqual({
+      DataType: 'Number',
+      StringValue: '2',
+    });
+  });
 
-    const body = JSON.parse(input.MessageBody);
-    expect(body.reason).toBe('INVALID_ENVELOPE');
-    expect(body.original_message).toBe('{"evento_id":"x"}');
-    expect(body.failed_at).toBe('2026-10-28T15:00:00.000Z');
-    expect(input.MessageAttributes.reason.StringValue).toBe('INVALID_ENVELOPE');
+  test('usa el event_id como grupo si el mensaje no trae MessageGroupId', async () => {
+    const send = jest.fn().mockResolvedValue({});
+    const publisher = createPublisher(send);
+
+    await publisher.publish({
+      originalMessage: { MessageId: 'msg-2', Body: '{}' },
+      reason: 'PROCESSING_ERROR',
+      context: { event_id: 'evt-2', receive_count: 1 },
+    });
+
+    const input = send.mock.calls[0][0].input;
+    expect(input.MessageGroupId).toBe('evt-2');
+    expect(input.MessageAttributes.receive_count.StringValue).toBe('1');
+  });
+
+  test('genera un cuerpo mínimo si el mensaje original no trae Body', async () => {
+    const send = jest.fn().mockResolvedValue({});
+    const publisher = createPublisher(send);
+
+    await publisher.publish({ originalMessage: { MessageId: 'msg-3' }, reason: 'X' });
+
+    const body = JSON.parse(send.mock.calls[0][0].input.MessageBody);
+    expect(body).toMatchObject({ reason: 'X', failed_at: '2026-10-28T15:00:00.000Z' });
   });
 
   test('falla si no hay DLQ configurada', async () => {

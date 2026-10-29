@@ -14,7 +14,8 @@
 - Estados: `delivery_status` (`PENDING|SENT|FAILED`) y `acknowledgement_status` (`PENDING|ACKNOWLEDGED`).
 - Outbox operativo hacia `fleetops_notification_events` con 4 eventos `notification_*_event`.
 - `processed_events` con `expires_at` (TTL 30 días).
-- 179 pruebas pasando y lint limpio al 2026-10-29.
+- 189 pruebas pasando y lint limpio al 2026-10-29.
+- Consumidor SQS con visibilidad 2/10/30 s, `maxReceiveCount=4` y DLQ con `error_reason`/`receive_count`.
 
 **Fecha de corte:** 2026-10-25  
 **Alcance:** `notification-service/`  

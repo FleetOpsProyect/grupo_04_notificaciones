@@ -224,7 +224,10 @@ Notas:
 - El núcleo no cambia; solo adaptadores (hexagonal).
 - Idempotencia con `processed_events` se mantiene.
 - El mensaje se borra de SQS solo tras el procesamiento exitoso.
-- Los fallos permanentes se publican en la DLQ (`notifications_dlq.fifo`) y luego se borran de la cola principal.
+- Reintentos transitorios sin bloquear el poll: la visibilidad del mensaje se ajusta a 2 s, 10 s y 30 s según el número de recepciones (sin `sleep` en proceso).
+- Los fallos permanentes se publican en la DLQ (`notifications_dlq.fifo`) conservando cuerpo y atributos originales, más `error_reason` y `receive_count`, y luego se borran de la cola principal.
+- Al alcanzar `SQS_MAX_RECEIVE_COUNT` (4 por defecto) el consumidor mueve el mensaje a la DLQ. La redrive policy de la cola queda como red de seguridad si el proceso cae.
+- Habilitar en Firestore la política TTL sobre `processed_events.expires_at` (30 días).
 - Los eventos propios (`notification_created_event`, `notification_sent_event`, `notification_failed_event`, `notification_acknowledged_event`) se guardan en `outbox_events` y un temporizador cada 2 s los publica en SNS (`fleetops_notification_events`, físico `.fifo`).
 - En LocalStack el topic SNS se crea con `FifoTopic=true`; en AWS real se requiere la misma configuración.
 - Si `BROKER_TYPE=sqs` y falta `SQS_QUEUE_URL`, el arranque falla de forma explícita.

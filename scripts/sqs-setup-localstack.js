@@ -7,6 +7,7 @@ const {
 const { SNSClient, CreateTopicCommand } = require('@aws-sdk/client-sns');
 
 const region = process.env.AWS_REGION || 'us-east-1';
+const maxReceiveCount = Number(process.env.SQS_MAX_RECEIVE_COUNT || 4);
 const endpoint = process.env.AWS_ENDPOINT_URL || 'http://127.0.0.1:4566';
 const credentials = { accessKeyId: 'test', secretAccessKey: 'test' };
 
@@ -59,7 +60,7 @@ const main = async () => {
       Attributes: {
         RedrivePolicy: JSON.stringify({
           deadLetterTargetArn: dlqArn,
-          maxReceiveCount: 5,
+          maxReceiveCount,
         }),
       },
     }),

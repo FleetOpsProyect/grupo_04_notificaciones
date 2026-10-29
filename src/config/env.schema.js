@@ -73,6 +73,7 @@ const envSchema = z
     SQS_WAIT_TIME_SECONDS: integer(20, 1),
     SQS_MAX_NUMBER_OF_MESSAGES: integer(10, 1),
     SQS_VISIBILITY_TIMEOUT_SECONDS: integer(30, 1),
+    SQS_MAX_RECEIVE_COUNT: integer(4, 1),
 
     SNS_NOTIFICATION_TOPIC_ARN: z.preprocess(
       (value) => (value === '' ? undefined : value),
@@ -216,6 +217,7 @@ const loadConfig = (environment = process.env) => {
       waitTimeSeconds: value.SQS_WAIT_TIME_SECONDS,
       maxNumberOfMessages: value.SQS_MAX_NUMBER_OF_MESSAGES,
       visibilityTimeoutSeconds: value.SQS_VISIBILITY_TIMEOUT_SECONDS,
+      maxReceiveCount: value.SQS_MAX_RECEIVE_COUNT,
       consumerRetryDelaysMs: Object.freeze(consumerRetryDelays),
     }),
     sns: Object.freeze({
