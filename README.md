@@ -170,6 +170,77 @@ test/
 - CI ejecuta lint, formato, OpenAPI y pruebas con cobertura; no levanta LocalStack ni Firestore ni publica imágenes.
 - Las suites de integración se ejecutan localmente con `npm run test:integration`, `npm run test:integration:firestore` o ambas en secuencia con `npm run test:integration:all`.
 
+## Despliegue (CD)
+
+El CD se dispara con **push a `main`** (después del merge `develop → main`) o manualmente con `workflow_dispatch`.
+
+### Flujo
+
+1. `verify`: `npm ci`, lint, formato, OpenAPI y cobertura.
+2. `build`: imagen Docker `linux/amd64` publicada en Docker Hub con tags `<sha>` y `latest`.
+3. `deploy`: copia `docker-compose.prod.yml` a `/opt/fleetops`, ejecuta `docker compose pull/up` y verifica `/health` y `/ready` desde la propia instancia. Si falla, vuelve a la imagen anterior.
+
+### Secretos en GitHub
+
+| Secreto              | Valor                                |
+| -------------------- | ------------------------------------ |
+| `DOCKERHUB_USERNAME` | `camilom959`                         |
+| `DOCKERHUB_TOKEN`    | token con permiso de escritura       |
+| `EC2_HOST`           | IP o DNS **público** de la instancia |
+| `EC2_USER`           | `ec2-user`                           |
+| `EC2_SSH_KEY`        | contenido del `.pem`                 |
+| `EC2_PORT`           | opcional, `22` por defecto           |
+
+El repositorio de Docker Hub es público, por lo que la EC2 no necesita `docker login`.
+
+### Preparar la EC2 (Amazon Linux 2023)
+
+```bash
+# Desde la instancia, con el repositorio clonado o copiando el script
+./deploy/ec2-bootstrap.sh
+```
+
+Luego:
+
+```bash
+sudo mkdir -p /opt/fleetops/secrets
+sudo chown -R ec2-user:ec2-user /opt/fleetops
+# Copiar el JSON de Firestore
+sudo chown 1000:1000 /opt/fleetops/secrets/<firebase>.json
+sudo chmod 600 /opt/fleetops/secrets/<firebase>.json
+# Copiar .env.production.example como /opt/fleetops/.env y completar valores
+```
+
+### Rol IAM de la instancia
+
+Crear el rol con la política de `deploy/aws/ec2-sqs-sns-policy.json` y asociarlo al instance profile:
+
+```bash
+aws iam create-role --role-name fleetops-notification-ec2   --assume-role-policy-document file://deploy/aws/ec2-trust-policy.json
+
+aws iam put-role-policy --role-name fleetops-notification-ec2   --policy-name fleetops-notification-sqs-sns   --policy-document file://deploy/aws/ec2-sqs-sns-policy.json
+
+aws iam create-instance-profile --instance-profile-name fleetops-notification-ec2
+aws iam add-role-to-instance-profile --instance-profile-name fleetops-notification-ec2   --role-name fleetops-notification-ec2
+
+aws ec2 associate-iam-instance-profile --instance-id <INSTANCE_ID>   --iam-instance-profile Name=fleetops-notification-ec2
+```
+
+La aplicación usa el rol de instancia; **no** configure `AWS_ACCESS_KEY_ID` ni `AWS_SECRET_ACCESS_KEY` en producción.
+
+### Security group
+
+- `22/tcp` desde GitHub Actions (o SSM en lugar de SSH).
+- `3000/tcp` solo desde el API Gateway, servicios internos y Prometheus.
+- Salida `443/tcp` hacia SQS, SNS, Firestore, Docker Hub y Resend.
+
+### Primer despliegue y rollback
+
+1. Abrir PR `develop → main` y mergear.
+2. Verificar la ejecución del workflow CD.
+3. Comprobar `docker compose ps`, `/health` y `/ready` en la instancia.
+4. `.current_image` guarda el tag desplegado y `.previous_image` el anterior; el CD hace rollback automático si el smoke falla.
+
 ## Documentación relacionada
 
 - Changelog vigente: `docs/changelog-arquetipo-sqs-sns.md`

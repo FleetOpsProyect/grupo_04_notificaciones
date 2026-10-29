@@ -1,0 +1,29 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ConsumeNotificationsQueue",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:ChangeMessageVisibility",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl"
+      ],
+      "Resource": "arn:aws:sqs:us-east-2:020882464612:notifications_queue.fifo"
+    },
+    {
+      "Sid": "SendToNotificationsDlq",
+      "Effect": "Allow",
+      "Action": ["sqs:SendMessage", "sqs:GetQueueAttributes"],
+      "Resource": "arn:aws:sqs:us-east-2:020882464612:notifications_dlq.fifo"
+    },
+    {
+      "Sid": "PublishOwnNotificationEvents",
+      "Effect": "Allow",
+      "Action": ["sns:Publish"],
+      "Resource": "arn:aws:sns:us-east-2:020882464612:fleetops_notification_events.fifo"
+    }
+  ]
+}
