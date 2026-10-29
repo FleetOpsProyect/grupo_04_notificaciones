@@ -7,7 +7,6 @@
 ## Resumen vigente de pendientes (2026-10-29)
 
 1. Habilitar TTL de Firestore sobre `processed_events.expires_at` (30 días).
-3. Fase 10: suite de integración SQS contra LocalStack.
 4. Fase 11: eliminar Kafka (`kafkajs`, adaptadores, `KAFKA_*`, `BROKER_TYPE`, scripts y suite).
 5. CI/CD: job de integración con LocalStack, Quality Gate de Sonar y despliegue a EC2.
 6. Confirmar con DevOps topics de Mantenimiento/Combustible y el nombre `fleetops_assigment_events`.

@@ -34,44 +34,32 @@ ser un correo plano, sin `Nombre <correo>`; además, el dominio debe estar verif
 (SPF/DKIM) o usar `onboarding@resend.dev` únicamente hacia el correo de la cuenta. La API key debe
 tener permiso de envío. No incluya credenciales en el repositorio ni en los logs.
 
-### Kafka local con Docker
+### Integración SQS/SNS con LocalStack
+
+La suite de integración usa Amazon SQS FIFO en LocalStack. Kafka queda como modo histórico hasta la Fase 11.
 
 ```bash
-docker run -d --name fleetops-kafka -p 9092:9092 \
-  -e CLUSTER_ID=MkU3OEVBNTcwNTJENDM2Qk \
-  -e KAFKA_NODE_ID=1 \
-  -e KAFKA_PROCESS_ROLES=broker,controller \
-  -e KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093 \
-  -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092 \
-  -e KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER \
-  -e KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT \
-  -e KAFKA_CONTROLLER_QUORUM_VOTERS=1@localhost:9093 \
-  -e KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT \
-  -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 \
-  -e KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1 \
-  -e KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1 \
-  -e KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0 \
-  -e KAFKA_NUM_PARTITIONS=1 \
-  -e KAFKA_AUTO_CREATE_TOPICS_ENABLE=true \
-  apache/kafka:3.9.0
-
-npm run kafka:setup
+docker compose -f docker-compose.localstack.yml up -d
+npm run sqs:setup:localstack
 npm run test:integration
 ```
 
-La suite de integración requiere el broker local levantado; `npm test` la omite. Configure `KAFKA_ENABLED=true` y `KAFKA_BROKERS=127.0.0.1:9092` en `.env`. Para el primer arranque
-en frío conviene `READINESS_TIMEOUT_MS=10000`.
+`npm test` omite la suite de integración. Para ejecutarla se necesita LocalStack en `AWS_ENDPOINT_URL` (por defecto `http://127.0.0.1:4566`) y las variables `SQS_*` del `.env`.
 
-Antes de ejecutar cualquier suite de integración, detenga el servicio local (`npm run dev` o `npm start`). El consumidor y el scheduler en ejecución comparten el mismo broker y proyecto de Firestore, por lo que pueden consumir eventos de prueba o despachar notificaciones pendientes y volver las pruebas intermitentes.
+Antes de ejecutar cualquier suite de integración, detenga el servicio local (`npm run dev` o `npm start`). El consumidor y el scheduler en ejecución comparten la misma cola y proyecto de Firestore, por lo que pueden consumir eventos de prueba o despachar notificaciones pendientes y volver las pruebas intermitentes.
 
 Publicar eventos de prueba y verificar el resultado:
 
 ```bash
-npm run kafka:publish -- incident
-npm run kafka:publish -- invalid-envelope
-npm run firestore:event -- <evento_id>
-npm run firestore:cleanup -- <evento_id>
+npm run sqs:publish -- incident
+npm run sqs:publish -- minor-incident
+npm run sqs:publish -- fuel
+npm run sqs:publish -- invalid-envelope
+npm run firestore:event -- <event_id>
+npm run firestore:cleanup -- <event_id>
 ```
+
+La suite de integración SQS crea colas temporales propias, valida procesamiento, DLQ por sobre inválido, DLQ por error permanente y el paso a DLQ tras 4 recepciones fallidas.
 
 La creación de los índices de Firestore requiere permisos de `datastore.indexes.create`:
 
@@ -83,7 +71,7 @@ La suite de integración de Firestore usa el proyecto real configurado en `.env`
 
 ```bash
 npm run test:integration:firestore
-npm run test:integration:all   # Kafka y Firestore en secuencia
+npm run test:integration:all   # SQS y Firestore en secuencia
 ```
 
 Ejecute las suites en secuencia, no en paralelo. Si el servicio local sigue activo, su scheduler puede reclamar y marcar `SENT` las notificaciones `PENDING_DISPATCH` creadas por la prueba.
@@ -95,8 +83,10 @@ Variables relevantes:
 | `PORT`                            | Puerto HTTP, `3000` por defecto                      |
 | `FIREBASE_PROJECT_ID`             | Proyecto Firestore                                   |
 | `FIRESTORE_EMULATOR_HOST`         | Emulador local de Firestore                          |
-| `KAFKA_ENABLED`                   | Habilita consumidor y DLQ                            |
-| `KAFKA_BROKERS`, `KAFKA_GROUP_ID` | Conexión y grupo consumidor                          |
+| `BROKER_TYPE`                     | `sqs` (recomendado) o `kafka` (histórico)             |
+| `SQS_QUEUE_URL`, `SQS_DLQ_URL`    | Colas FIFO del servicio                              |
+| `SQS_MAX_RECEIVE_COUNT`           | Recepciones antes de DLQ, `4` por defecto            |
+| `SNS_NOTIFICATION_TOPIC_ARN`      | Topic SNS propio para eventos `notification_*`       |
 | `EMAIL_PROVIDER`                  | `console` o `resend`                                 |
 | `RESEND_API_KEY`                  | Obligatoria con `EMAIL_PROVIDER=resend`              |
 | `EMAIL_FROM`                      | Remitente verificado; correo plano, sin nombre       |

@@ -14,7 +14,7 @@
     "test": "jest",
     "test:unit": "jest test/unit",
     "test:api": "jest test/api",
-    "test:integration": "node scripts/run-kafka-integration.js",
+    "test:integration": "node scripts/run-sqs-integration.js",
     "test:integration:firestore": "node scripts/run-firestore-integration.js",
     "test:integration:all": "npm run test:integration && npm run test:integration:firestore",
     "test:e2e": "jest test/e2e --runInBand",
@@ -29,7 +29,9 @@
     "firestore:cleanup": "node scripts/firestore-cleanup-event.js",
     "firestore:indexes": "node scripts/firestore-indexes.js",
     "sqs:setup:localstack": "node scripts/sqs-setup-localstack.js",
-    "sqs:publish": "node scripts/sqs-publish.js"
+    "sqs:publish": "node scripts/sqs-publish.js",
+    "test:integration:sqs": "node scripts/run-sqs-integration.js",
+    "test:integration:kafka": "node scripts/run-kafka-integration.js"
   },
   "dependencies": {
     "@apidevtools/swagger-parser": "13.1.0",
