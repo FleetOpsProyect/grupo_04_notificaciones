@@ -1,5 +1,5 @@
 const { Notification } = require('../../src/domain/entities/notification');
-const { DispatchStatus } = require('../../src/domain/enums');
+const { DeliveryStatus } = require('../../src/domain/enums');
 const { EmailDeliveryError } = require('../../src/domain/errors');
 const { createTestContext, eventEnvelope, FIXED_NOW } = require('../helpers/test-context');
 
@@ -17,7 +17,7 @@ describe('DispatchPendingNotifications', () => {
     expect(context.emailSender.send).toHaveBeenCalledTimes(2);
     for (const id of ids) {
       const notification = context.state.notifications.get(id);
-      expect(notification.dispatch_status).toBe(DispatchStatus.SENT);
+      expect(notification.delivery_status).toBe(DeliveryStatus.SENT);
       expect(notification.provider_message_id).toBe('provider-1');
     }
   });
@@ -43,7 +43,7 @@ describe('DispatchPendingNotifications', () => {
     expect(result).toMatchObject({ claimed: 2, sent: 1, failed: 1 });
     const failed = ids
       .map((id) => context.state.notifications.get(id))
-      .find((notification) => notification.dispatch_status === DispatchStatus.FAILED);
+      .find((notification) => notification.delivery_status === DeliveryStatus.FAILED);
     expect(failed.failure_reason).toBe('RECIPIENT_NOT_CONFIGURED');
   });
 
@@ -56,8 +56,8 @@ describe('DispatchPendingNotifications', () => {
     const result = await context.useCases.dispatchPendingNotifications({ limit: 10 });
     expect(result).toMatchObject({ claimed: 2, sent: 0, retried: 2 });
     for (const notification of context.state.notifications.values()) {
-      expect(notification.dispatch_status).toBe(DispatchStatus.PENDING_DISPATCH);
-      expect(notification.dispatch_attempts).toBe(1);
+      expect(notification.delivery_status).toBe(DeliveryStatus.PENDING);
+      expect(notification.delivery_attempts).toBe(1);
       expect(notification.next_attempt_at).toEqual(new Date(FIXED_NOW.getTime() + 30000));
       expect(notification.locked_until).toBeNull();
     }
@@ -72,7 +72,7 @@ describe('DispatchPendingNotifications', () => {
     const result = await context.useCases.dispatchPendingNotifications({ limit: 10 });
     expect(result).toMatchObject({ claimed: 2, sent: 0, failed: 2, retried: 0 });
     for (const notification of context.state.notifications.values()) {
-      expect(notification.dispatch_status).toBe(DispatchStatus.FAILED);
+      expect(notification.delivery_status).toBe(DeliveryStatus.FAILED);
       expect(notification.failure_reason).toBe('INVALID_FROM');
     }
   });
@@ -82,7 +82,7 @@ describe('DispatchPendingNotifications', () => {
     const ids = await prepareIncident(context);
     for (const id of ids) {
       const current = context.state.notifications.get(id);
-      context.state.notifications.set(id, new Notification({ ...current, dispatch_attempts: 3 }));
+      context.state.notifications.set(id, new Notification({ ...current, delivery_attempts: 3 }));
     }
     context.emailSender.send.mockRejectedValue(
       new EmailDeliveryError('timeout', { transient: true }),
@@ -90,8 +90,8 @@ describe('DispatchPendingNotifications', () => {
     const result = await context.useCases.dispatchPendingNotifications({ limit: 10 });
     expect(result).toMatchObject({ claimed: 2, failed: 2, retried: 0 });
     for (const id of ids) {
-      expect(context.state.notifications.get(id).dispatch_attempts).toBe(4);
-      expect(context.state.notifications.get(id).dispatch_status).toBe(DispatchStatus.FAILED);
+      expect(context.state.notifications.get(id).delivery_attempts).toBe(4);
+      expect(context.state.notifications.get(id).delivery_status).toBe(DeliveryStatus.FAILED);
     }
   });
 
@@ -104,8 +104,8 @@ describe('DispatchPendingNotifications', () => {
     const result = await context.useCases.dispatchPendingNotifications({ limit: 10 });
     expect(result).toMatchObject({ claimed: 2, sent: 0, circuit_open: 2 });
     for (const notification of context.state.notifications.values()) {
-      expect(notification.dispatch_status).toBe(DispatchStatus.PENDING_DISPATCH);
-      expect(notification.dispatch_attempts).toBe(0);
+      expect(notification.delivery_status).toBe(DeliveryStatus.PENDING);
+      expect(notification.delivery_attempts).toBe(0);
       expect(notification.locked_until).toBeNull();
     }
   });

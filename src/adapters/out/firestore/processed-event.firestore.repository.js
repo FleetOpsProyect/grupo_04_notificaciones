@@ -13,7 +13,7 @@ const createProcessedEventFirestoreRepository = (db, transaction = null) => {
       return snapshot.exists;
     },
     async create(record) {
-      await write(collection.doc(record.evento_id), processedEventToDocument(record));
+      await write(collection.doc(record.event_id), processedEventToDocument(record));
     },
   };
 };

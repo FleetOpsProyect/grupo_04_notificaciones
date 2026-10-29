@@ -1,6 +1,7 @@
 const { formatBogotaText } = require('../shared/time');
 
 const buildIncidentReportTemplate = ({
+  kind = 'SEVERE',
   requiereAsistencia,
   vehiculoId,
   incidenteId,
@@ -10,9 +11,10 @@ const buildIncidentReportTemplate = ({
   fechaReporte,
 }) => {
   const prefix = requiereAsistencia ? '[URGENTE] ' : '';
-  const subject = `${prefix}[FleetOps] Incidente reportado en el vehículo ${vehiculoId}`;
+  const label = kind === 'MINOR' ? 'Incidente leve reportado' : 'Incidente reportado';
+  const subject = `${prefix}[FleetOps] ${label} en el vehículo ${vehiculoId}`;
   const lines = [
-    `Se reportó un incidente en el vehículo ${vehiculoId}.`,
+    `Se reportó un ${kind === 'MINOR' ? 'incidente leve' : 'incidente'} en el vehículo ${vehiculoId}.`,
     `Incidente: ${incidenteId}`,
     `Tipo: ${tipoIncidente}`,
     `Fecha del reporte: ${formatBogotaText(fechaReporte)}`,

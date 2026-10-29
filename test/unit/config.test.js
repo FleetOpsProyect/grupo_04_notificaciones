@@ -48,21 +48,21 @@ describe('configuración', () => {
   });
 });
 
-describe('sobre de evento Kafka', () => {
+describe('sobre de evento estándar', () => {
   const validEnvelope = {
-    evento_id: '11111111-1111-4111-8111-111111111111',
-    tipo_evento: 'IncidenteReportadoEvent',
+    event_id: '11111111-1111-4111-8111-111111111111',
+    event_type: 'severe_incident_reported_event',
     version: 1,
-    fecha_evento: '2026-10-22T14:55:00.000Z',
-    origen: 'incident-service',
+    occurred_at: '2026-10-22T14:55:00.000Z',
+    source: 'incident-service',
     correlation_id: '22222222-2222-4222-8222-222222222222',
-    datos: { incidente_id: 'INC-1' },
+    data: { incidente_id: 'INC-1' },
     desconocido: 'ignorado',
   };
 
   test('parsea un sobre válido y genera correlation_id si falta', () => {
     const envelope = parseEventEnvelope(Buffer.from(JSON.stringify(validEnvelope)));
-    expect(envelope.tipo_evento).toBe('IncidenteReportadoEvent');
+    expect(envelope.event_type).toBe('severe_incident_reported_event');
     expect(envelope.desconocido).toBeUndefined();
     const withoutCorrelation = parseEventEnvelope(
       Buffer.from(JSON.stringify({ ...validEnvelope, correlation_id: undefined })),
@@ -75,13 +75,21 @@ describe('sobre de evento Kafka', () => {
   test('rechaza JSON inválido, UUID inválido y datos ausentes', () => {
     expect(() => parseEventEnvelope(Buffer.from('{'))).toThrow('JSON válido');
     expect(() =>
-      parseEventEnvelope(Buffer.from(JSON.stringify({ ...validEnvelope, evento_id: 'no-uuid' }))),
+      parseEventEnvelope(Buffer.from(JSON.stringify({ ...validEnvelope, event_id: 'no-uuid' }))),
     ).toThrow('Sobre de evento inválido');
     expect(() =>
-      parseEventEnvelope(Buffer.from(JSON.stringify({ ...validEnvelope, datos: null }))),
+      parseEventEnvelope(Buffer.from(JSON.stringify({ ...validEnvelope, data: null }))),
     ).toThrow('Sobre de evento inválido');
     expect(() =>
       parseEventEnvelope(Buffer.from(JSON.stringify({ ...validEnvelope, version: '2' }))),
-    ).toThrow('Sobre de evento inválido');
+    ).not.toThrow();
+  });
+
+  test('rechaza event_type del atributo distinto al del sobre', () => {
+    expect(() =>
+      parseEventEnvelope(Buffer.from(JSON.stringify(validEnvelope)), {
+        attributeEventType: 'minor_incident_reported_event',
+      }),
+    ).toThrow('no coincide');
   });
 });

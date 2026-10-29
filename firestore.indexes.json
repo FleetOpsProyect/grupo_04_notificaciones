@@ -4,7 +4,7 @@
       "collectionGroup": "notifications",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "dispatch_status", "order": "ASCENDING" },
+        { "fieldPath": "delivery_status", "order": "ASCENDING" },
         { "fieldPath": "next_attempt_at", "order": "ASCENDING" }
       ]
     },
@@ -36,7 +36,7 @@
       "collectionGroup": "notifications",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "dispatch_status", "order": "ASCENDING" },
+        { "fieldPath": "delivery_status", "order": "ASCENDING" },
         { "fieldPath": "created_at", "order": "DESCENDING" }
       ]
     },
@@ -44,7 +44,7 @@
       "collectionGroup": "notifications",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "attention_status", "order": "ASCENDING" },
+        { "fieldPath": "acknowledgement_status", "order": "ASCENDING" },
         { "fieldPath": "created_at", "order": "DESCENDING" }
       ]
     },
@@ -61,7 +61,15 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "severity", "order": "ASCENDING" },
-        { "fieldPath": "attention_status", "order": "ASCENDING" }
+        { "fieldPath": "acknowledgement_status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "outbox_events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "next_attempt_at", "order": "ASCENDING" }
       ]
     }
   ],

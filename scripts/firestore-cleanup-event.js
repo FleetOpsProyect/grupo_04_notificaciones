@@ -4,7 +4,7 @@ const { createFirestoreClient } = require('../src/adapters/out/firestore/firesto
 const eventIds = process.argv.slice(2);
 
 if (eventIds.length === 0) {
-  process.stderr.write('Uso: node scripts/firestore-cleanup-event.js <evento_id> [...]\n');
+  process.stderr.write('Uso: node scripts/firestore-cleanup-event.js <event_id> [...]\n');
   process.exitCode = 1;
 } else {
   const main = async () => {

@@ -49,7 +49,7 @@ const createApp = ({
   }
 
   app.use(express.json({ limit: '100kb' }));
-  app.use('/api/v1/notificaciones', createNotificationRouter(notificationController));
+  app.use('/notifications', createNotificationRouter(notificationController));
 
   app.use(notFoundHandler);
   app.use(errorHandler(logger));

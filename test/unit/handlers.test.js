@@ -1,9 +1,16 @@
-const incidente = require('../../src/application/handlers/incidente-reportado.handler');
-const asignacion = require('../../src/application/handlers/asignacion-interrumpida.handler');
-const documentoProximo = require('../../src/application/handlers/documento-proximo-a-vencer.handler');
-const documentoVencido = require('../../src/application/handlers/documento-vencido.handler');
-const mantenimiento = require('../../src/application/handlers/mantenimiento-preventivo-requerido.handler');
-const pending = require('../../src/application/handlers/pending-contract.handler');
+const {
+  severeIncidentHandler,
+  minorIncidentHandler,
+} = require('../../src/application/handlers/incident.handler');
+const assignment = require('../../src/application/handlers/interrupted-assignment.handler');
+const documentExpiring = require('../../src/application/handlers/document-expiring.handler');
+const documentExpired = require('../../src/application/handlers/document-expired.handler');
+const maintenance = require('../../src/application/handlers/maintenance-required.handler');
+const {
+  fuelAnomalyHandler,
+  consumoAnomaloHandler,
+} = require('../../src/application/handlers/fuel-anomaly.handler');
+const { IGNORED_EVENT_TYPES } = require('../../src/application/handlers/ignored-events');
 const {
   createEventHandlerRegistry,
 } = require('../../src/application/handlers/event-handler.registry');
@@ -12,8 +19,8 @@ const { Severity, Type } = require('../../src/domain/enums');
 const { eventEnvelope } = require('../helpers/test-context');
 
 describe('event handlers', () => {
-  test('incidente genera dos notificaciones críticas', () => {
-    const plan = incidente.buildPlan(eventEnvelope());
+  test('incidente grave genera dos notificaciones críticas', () => {
+    const plan = severeIncidentHandler.buildPlan(eventEnvelope());
     expect(plan.alert).toMatchObject({
       type: Type.INCIDENT,
       severity: Severity.CRITICAL,
@@ -21,12 +28,26 @@ describe('event handlers', () => {
     });
     expect(plan.notifications).toHaveLength(2);
     expect(plan.notifications[0].subject).toContain('[URGENTE]');
+    expect(plan.notifications[0].message).toContain('REQUIERE ASISTENCIA INMEDIATA');
+  });
+
+  test('incidente leve genera dos notificaciones con severidad WARNING', () => {
+    const plan = minorIncidentHandler.buildPlan(
+      eventEnvelope({
+        event_type: 'minor_incident_reported_event',
+        data: { ...eventEnvelope().data, requiere_asistencia: false },
+      }),
+    );
+    expect(plan.alert.severity).toBe(Severity.WARNING);
+    expect(plan.notifications).toHaveLength(2);
+    expect(plan.notifications[0].subject).not.toContain('[URGENTE]');
+    expect(plan.notifications[0].message).toContain('incidente leve');
   });
 
   test('incidente admite campos opcionales y rechaza datos inválidos', () => {
-    const minimal = incidente.buildPlan(
+    const minimal = severeIncidentHandler.buildPlan(
       eventEnvelope({
-        datos: {
+        data: {
           incidente_id: 'INC-2',
           vehiculo_id: 'VEH-2',
           tipo_incidente: 'Falla',
@@ -37,119 +58,136 @@ describe('event handlers', () => {
     );
     expect(minimal.notifications[0].subject).not.toContain('[URGENTE]');
     expect(() =>
-      incidente.buildPlan(eventEnvelope({ datos: { ...eventEnvelope().datos, vehiculo_id: '' } })),
+      severeIncidentHandler.buildPlan(
+        eventEnvelope({ data: { ...eventEnvelope().data, vehiculo_id: '' } }),
+      ),
     ).toThrow(InvalidDataError);
   });
 
   test('asignación interrumpida genera una notificación al empleado', () => {
-    const plan = asignacion.buildPlan(
+    const plan = assignment.buildPlan(
       eventEnvelope({
-        tipo_evento: 'AsignacionInterrumpidaEvent',
-        datos: {
-          empleado_email: '  Empleado@Example.COM ',
-          resultado: 'AUTOMATICA_EXITOSA',
-          asignacion_id: 'ASI-1',
+        event_type: 'interrupted_assignment_event',
+        data: {
+          assignment_id: 'ASG-1',
+          employee_email: '  Empleado@Example.COM ',
+          reassignment_result: 'AUTOMATIC_SUCCESSFUL',
+          new_assignment_id: 'ASG-2',
         },
       }),
     );
-    expect(plan.alert.severity).toBe(Severity.INFORMATIONAL);
+    expect(plan.alert.severity).toBe(Severity.INFO);
+    expect(plan.alert.reference_id).toBe('ASG-1');
     expect(plan.notifications[0]).toMatchObject({
       recipient_email: 'empleado@example.com',
-      reference_id: 'ASI-1',
+      reference_id: 'ASG-1',
     });
+    expect(plan.notifications[0].message).toContain('ASG-2');
   });
 
   test('asignación sin resultado queda WARNING y tolera campos opcionales', () => {
-    const plan = asignacion.buildPlan(
+    const plan = assignment.buildPlan(
       eventEnvelope({
-        tipo_evento: 'AsignacionInterrumpidaEvent',
-        datos: { empleado_email: 'empleado@example.com' },
+        event_type: 'interrupted_assignment_event',
+        data: { assignment_id: 'ASG-1', employee_email: 'empleado@example.com' },
       }),
     );
     expect(plan.alert.severity).toBe(Severity.WARNING);
-    expect(plan.alert.reference_id).toBeNull();
     expect(plan.notifications[0].message).toContain('pendiente');
   });
 
   test('asignación rechaza correo inválido y resultado inválido', () => {
     expect(() =>
-      asignacion.buildPlan(
+      assignment.buildPlan(
         eventEnvelope({
-          tipo_evento: 'AsignacionInterrumpidaEvent',
-          datos: { empleado_email: 'no-email' },
+          event_type: 'interrupted_assignment_event',
+          data: { assignment_id: 'ASG-1', employee_email: 'no-email' },
         }),
       ),
     ).toThrow(InvalidDataError);
     expect(() =>
-      asignacion.buildPlan(
+      assignment.buildPlan(
         eventEnvelope({
-          tipo_evento: 'AsignacionInterrumpidaEvent',
-          datos: { empleado_email: 'a@b.co', resultado: 'OTRO' },
+          event_type: 'interrupted_assignment_event',
+          data: {
+            assignment_id: 'ASG-1',
+            employee_email: 'a@b.co',
+            reassignment_result: 'OTRO',
+          },
         }),
       ),
     ).toThrow(InvalidDataError);
   });
 
-  test('documento próximo a vencer acepta 30, 15 y 5', () => {
-    for (const days of [30, 15, 5, '15']) {
-      const plan = documentoProximo.buildPlan(
+  test('documento próximo a vencer acepta los umbrales del DAS', () => {
+    for (const days of [30, 15, 7, 1, '15']) {
+      const plan = documentExpiring.buildPlan(
         eventEnvelope({
-          tipo_evento: 'DocumentoProximoAVencerEvent',
-          datos: {
-            dias_restantes: days,
-            documento_id: 'DOC-1',
-            entidad_tipo: 'VEHICLE',
+          event_type: 'document_expiring_soon_event',
+          data: {
+            document_id: 'DOC-1',
+            document_type: 'SOAT',
+            owner_type: 'VEHICLE',
+            days_remaining: days,
+            threshold_days: 30,
           },
         }),
       );
       expect(plan.alert.severity).toBe(Severity.WARNING);
       expect(plan.notifications).toHaveLength(1);
+      expect(plan.notifications[0].recipient_role).toBe('FLEET_ADMINISTRATOR');
       expect(plan.notifications[0].message).toContain('Días restantes');
     }
   });
 
-  test('documento próximo rechaza días no permitidos', () => {
+  test('documento próximo rechaza días inválidos', () => {
     expect(() =>
-      documentoProximo.buildPlan(
+      documentExpiring.buildPlan(
         eventEnvelope({
-          tipo_evento: 'DocumentoProximoAVencerEvent',
-          datos: { dias_restantes: 10 },
+          event_type: 'document_expiring_soon_event',
+          data: { document_id: 'DOC-1', days_remaining: -1 },
         }),
       ),
     ).toThrow(InvalidDataError);
   });
 
   test('documento vencido genera alerta crítica', () => {
-    const full = documentoVencido.buildPlan(
+    const full = documentExpired.buildPlan(
       eventEnvelope({
-        tipo_evento: 'DocumentoVencidoEvent',
-        datos: { documento_id: 'DOC-1', entidad_tipo: 'VEHICLE' },
+        event_type: 'document_expired_event',
+        data: { document_id: 'DOC-1', document_type: 'SOAT', owner_type: 'VEHICLE' },
       }),
     );
     expect(full.alert.severity).toBe(Severity.CRITICAL);
-    const minimal = documentoVencido.buildPlan(
-      eventEnvelope({ tipo_evento: 'DocumentoVencidoEvent', datos: {} }),
-    );
-    expect(minimal.alert.reference_id).toBeNull();
+    expect(full.alert.reference_id).toBe('DOC-1');
+    expect(() =>
+      documentExpired.buildPlan(
+        eventEnvelope({ event_type: 'document_expired_event', data: {} }),
+      ),
+    ).toThrow(InvalidDataError);
   });
 
   test('mantenimiento genera dos notificaciones y formatea kilómetros', () => {
-    const plan = mantenimiento.buildPlan(
+    const plan = maintenance.buildPlan(
       eventEnvelope({
-        tipo_evento: 'MantenimientoPreventivoRequeridoEvent',
-        datos: {
-          kilometros: '12345',
-          vehiculo_id: 'VEH-1',
+        event_type: 'MantenimientoPreventivoRequeridoEvent',
+        data: {
           mantenimiento_id: 'MAN-1',
+          vehiculo_id: 'VEH-1',
+          kilometraje_actual: '12345',
+          umbral_km: 15000,
+          motivo: 'Preventivo',
         },
       }),
     );
     expect(plan.notifications).toHaveLength(2);
     expect(plan.notifications[0].message).toContain('12.345 km');
-    const minimal = mantenimiento.buildPlan(
+    expect(plan.notifications[0].message).toContain('15.000 km');
+    expect(plan.notifications[0].message).toContain('Preventivo');
+    const minimal = maintenance.buildPlan(
       eventEnvelope({
-        tipo_evento: 'MantenimientoPreventivoRequeridoEvent',
-        datos: {},
+        event_type: 'MantenimientoPreventivoRequeridoEvent',
+        data: {},
       }),
     );
     expect(minimal.alert.reference_id).toBeNull();
@@ -157,34 +195,78 @@ describe('event handlers', () => {
 
   test('mantenimiento rechaza kilómetros negativos', () => {
     expect(() =>
-      mantenimiento.buildPlan(
+      maintenance.buildPlan(
         eventEnvelope({
-          tipo_evento: 'MantenimientoPreventivoRequeridoEvent',
-          datos: { kilometros: -1 },
+          event_type: 'MantenimientoPreventivoRequeridoEvent',
+          data: { kilometraje_actual: -1 },
         }),
       ),
     ).toThrow(InvalidDataError);
   });
 
+  test('combustible acepta ambos alias y payload en inglés o español', () => {
+    const english = fuelAnomalyHandler.buildPlan(
+      eventEnvelope({
+        event_type: 'fuel_anomaly_detected_event',
+        data: {
+          fuel_record_id: 'FUEL-1',
+          vehicle_id: 'VEH-1',
+          efficiency_km_per_gallon: 28.5,
+          average_efficiency_km_per_gallon: 42.1,
+          gallons_purchased: 10,
+        },
+      }),
+    );
+    expect(english.alert).toMatchObject({
+      type: Type.FUEL,
+      severity: Severity.WARNING,
+      reference_id: 'FUEL-1',
+    });
+    expect(english.notifications).toHaveLength(1);
+    expect(english.notifications[0].recipient_role).toBe('FLEET_ADMINISTRATOR');
+    expect(english.notifications[0].message).toContain('28,50');
+
+    const spanish = consumoAnomaloHandler.buildPlan(
+      eventEnvelope({
+        event_type: 'ConsumoAnomaloDetectadoEvent',
+        data: {
+          combustible_id: 'FUEL-2',
+          vehiculo_id: 'VEH-2',
+          rendimiento: 30,
+          rendimiento_promedio: 45,
+        },
+      }),
+    );
+    expect(spanish.alert.reference_id).toBe('FUEL-2');
+    expect(spanish.alert.source_event_type).toBe('ConsumoAnomaloDetectadoEvent');
+  });
+
   test('el sobre puede no traer datos y falla con error de validación', () => {
-    expect(() => incidente.buildPlan(eventEnvelope({ datos: undefined }))).toThrow(
+    expect(() => severeIncidentHandler.buildPlan(eventEnvelope({ data: undefined }))).toThrow(
       InvalidDataError,
     );
   });
 });
 
 describe('event handler registry', () => {
-  test('registra los 10 eventos del catálogo', () => {
+  test('registra los siete eventos con aviso y el alias de combustible', () => {
     const registry = createEventHandlerRegistry();
-    expect(registry.types()).toHaveLength(10);
-    expect(registry.resolve('IncidenteReportadoEvent')).toBe(incidente);
+    expect(registry.types()).toHaveLength(8);
+    expect(registry.resolve('severe_incident_reported_event')).toBe(severeIncidentHandler);
+    expect(registry.resolve('minor_incident_reported_event')).toBe(minorIncidentHandler);
+    expect(registry.resolve('interrupted_assignment_event')).toBe(assignment);
+    expect(registry.resolve('document_expiring_soon_event')).toBe(documentExpiring);
+    expect(registry.resolve('document_expired_event')).toBe(documentExpired);
+    expect(registry.resolve('MantenimientoPreventivoRequeridoEvent')).toBe(maintenance);
+    expect(registry.resolve('fuel_anomaly_detected_event')).toBe(fuelAnomalyHandler);
+    expect(registry.resolve('ConsumoAnomaloDetectadoEvent')).toBe(consumoAnomaloHandler);
     expect(registry.resolve('NoExisteEvent')).toBeNull();
   });
 
-  test('los eventos pendientes no generan plan', () => {
+  test('los eventos sin aviso no tienen handler', () => {
     const registry = createEventHandlerRegistry();
-    for (const type of pending.PENDING_EVENT_TYPES) {
-      expect(registry.resolve(type).buildPlan()).toBeNull();
+    for (const eventType of IGNORED_EVENT_TYPES) {
+      expect(registry.resolve(eventType)).toBeNull();
     }
   });
 });

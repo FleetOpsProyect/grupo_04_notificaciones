@@ -39,7 +39,7 @@ const createDispatchPendingNotificationsUseCase = ({
         const failed = claimed.markFailed(now, 'RECIPIENT_NOT_CONFIGURED');
         await notificationRepository.markFailed(failed);
         result.failed += 1;
-        metrics?.dispatchTotal?.inc({ result: 'FAILED' });
+        metrics?.deliveryTotal?.inc({ result: 'FAILED' });
         logger?.warn(
           { notification_id: claimed.notification_id, reason: 'RECIPIENT_NOT_CONFIGURED' },
           'Notificación sin destinatario configurado',
@@ -57,12 +57,12 @@ const createDispatchPendingNotificationsUseCase = ({
         const sent = claimed.markSent(clock.now(), response.provider_message_id);
         await notificationRepository.markSent(sent);
         result.sent += 1;
-        metrics?.dispatchTotal?.inc({ result: 'SENT' });
+        metrics?.deliveryTotal?.inc({ result: 'SENT' });
       } catch (error) {
         if (isCircuitOpen(error)) {
           await notificationRepository.releaseClaim(claimed.notification_id);
           result.circuit_open += 1;
-          metrics?.dispatchTotal?.inc({ result: 'CIRCUIT_OPEN' });
+          metrics?.deliveryTotal?.inc({ result: 'CIRCUIT_OPEN' });
           logger?.warn(
             { notification_id: claimed.notification_id },
             'Circuit Breaker abierto; se libera la reserva',
@@ -73,7 +73,7 @@ const createDispatchPendingNotificationsUseCase = ({
         const failureCode = error?.code ?? 'EMAIL_DELIVERY_ERROR';
         const isTransient = error?.transient !== false;
         const decision = decideFailure({
-          dispatchAttempts: claimed.dispatch_attempts,
+          deliveryAttempts: claimed.delivery_attempts,
           retryDelaysMs,
           maxAttempts,
         });
@@ -92,7 +92,7 @@ const createDispatchPendingNotificationsUseCase = ({
           const failed = claimed.markFailed(now, failureCode, decision.attempts);
           await notificationRepository.markFailed(failed);
           result.failed += 1;
-          metrics?.dispatchTotal?.inc({ result: 'FAILED' });
+          metrics?.deliveryTotal?.inc({ result: 'FAILED' });
         } else {
           const retry = claimed.scheduleRetry(
             new Date(now.getTime() + decision.delayMs),
@@ -101,7 +101,7 @@ const createDispatchPendingNotificationsUseCase = ({
           );
           await notificationRepository.scheduleRetry(retry);
           result.retried += 1;
-          metrics?.dispatchTotal?.inc({ result: 'RETRY' });
+          metrics?.deliveryTotal?.inc({ result: 'RETRY' });
         }
       }
     }

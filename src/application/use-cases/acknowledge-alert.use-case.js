@@ -1,8 +1,8 @@
 const { NotificationNotFoundError } = require('../../domain/errors');
 const { formatBogotaIso } = require('../shared/time');
 
-const createMarkAlertAttendedUseCase = ({ unitOfWork, clock }) => {
-  return async function markAlertAttended(notificationId) {
+const createAcknowledgeAlertUseCase = ({ unitOfWork, clock }) => {
+  return async function acknowledgeAlert(notificationId) {
     const now = clock.now();
     return unitOfWork.run(async (transaction) => {
       const notification = await transaction.notifications.findById(notificationId);
@@ -13,19 +13,19 @@ const createMarkAlertAttendedUseCase = ({ unitOfWork, clock }) => {
       if (alert === null) {
         throw new NotificationNotFoundError(notificationId);
       }
-      const attendedAlert = alert.markAttended(now);
-      await transaction.notifications.markAttendedByAlertId(alert.alert_id, now);
-      if (attendedAlert !== alert) {
-        await transaction.alerts.updateAttention(attendedAlert);
+      const acknowledgedAlert = alert.acknowledge(now);
+      await transaction.notifications.acknowledgeByAlertId(alert.alert_id, now);
+      if (acknowledgedAlert !== alert) {
+        await transaction.alerts.updateAcknowledgement(acknowledgedAlert);
       }
       return {
         notification_id: notification.notification_id,
         alert_id: alert.alert_id,
-        attention_status: attendedAlert.attention_status,
-        attended_at: formatBogotaIso(attendedAlert.attended_at),
+        acknowledgement_status: acknowledgedAlert.acknowledgement_status,
+        acknowledged_at: formatBogotaIso(acknowledgedAlert.acknowledged_at),
       };
     });
   };
 };
 
-module.exports = { createMarkAlertAttendedUseCase };
+module.exports = { createAcknowledgeAlertUseCase };

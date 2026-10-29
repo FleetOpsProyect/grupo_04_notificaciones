@@ -1,9 +1,15 @@
-const { DispatchStatus } = require('../../src/domain/enums');
+const {
+  ACKNOWLEDGEMENT_STATUS_VALUES,
+  DELIVERY_STATUS_VALUES,
+  DeliveryStatus,
+  SEVERITY_VALUES,
+} = require('../../src/domain/enums');
 
 const createInMemoryState = () => ({
   alerts: new Map(),
   notifications: new Map(),
   processedEvents: new Map(),
+  outboxEvents: new Map(),
 });
 
 const createInMemoryRepositories = (state = createInMemoryState()) => {
@@ -14,16 +20,16 @@ const createInMemoryRepositories = (state = createInMemoryState()) => {
     async findById(alertId) {
       return state.alerts.get(alertId) ?? null;
     },
-    async markAttended(alertId, at) {
+    async acknowledge(alertId, at) {
       const alert = state.alerts.get(alertId);
       if (!alert) {
         return null;
       }
-      const updated = alert.markAttended(at);
+      const updated = alert.acknowledge(at);
       state.alerts.set(alertId, updated);
       return updated;
     },
-    async updateAttention(alert) {
+    async updateAcknowledgement(alert) {
       state.alerts.set(alert.alert_id, alert);
     },
     async countCriticalPending() {
@@ -47,7 +53,8 @@ const createInMemoryRepositories = (state = createInMemoryState()) => {
       return [...state.notifications.values()]
         .filter(
           (item) =>
-            item.dispatch_status === DispatchStatus.PENDING_DISPATCH &&
+            item.delivery_status === DeliveryStatus.PENDING &&
+            item.next_attempt_at !== null &&
             item.next_attempt_at.getTime() <= now.getTime(),
         )
         .slice(0, limit);
@@ -79,10 +86,10 @@ const createInMemoryRepositories = (state = createInMemoryState()) => {
         state.notifications.set(notificationId, current.releaseClaim());
       }
     },
-    async markAttendedByAlertId(alertId, at) {
+    async acknowledgeByAlertId(alertId, at) {
       for (const [id, item] of state.notifications) {
         if (item.alert_id === alertId) {
-          state.notifications.set(id, item.markAttended(at));
+          state.notifications.set(id, item.acknowledge(at));
         }
       }
     },
@@ -98,10 +105,13 @@ const createInMemoryRepositories = (state = createInMemoryState()) => {
           if (filters.severity && item.severity !== filters.severity) {
             return false;
           }
-          if (filters.dispatch_status && item.dispatch_status !== filters.dispatch_status) {
+          if (filters.delivery_status && item.delivery_status !== filters.delivery_status) {
             return false;
           }
-          if (filters.attention_status && item.attention_status !== filters.attention_status) {
+          if (
+            filters.acknowledgement_status &&
+            item.acknowledgement_status !== filters.acknowledgement_status
+          ) {
             return false;
           }
           if (filters.reference_id && item.reference_id !== filters.reference_id) {
@@ -116,32 +126,40 @@ const createInMemoryRepositories = (state = createInMemoryState()) => {
           return true;
         })
         .sort((left, right) => right.created_at - left.created_at);
-      const bySeverity = { CRITICAL: 0, WARNING: 0, INFORMATIONAL: 0 };
-      const byDispatch = { PENDING_DISPATCH: 0, SENT: 0, FAILED: 0 };
+      const bySeverity = Object.fromEntries(SEVERITY_VALUES.map((value) => [value, 0]));
+      const byDelivery = Object.fromEntries(DELIVERY_STATUS_VALUES.map((value) => [value, 0]));
+      const byAcknowledgement = Object.fromEntries(
+        ACKNOWLEDGEMENT_STATUS_VALUES.map((value) => [value, 0]),
+      );
       for (const item of all) {
         bySeverity[item.severity] += 1;
-        byDispatch[item.dispatch_status] += 1;
+        byDelivery[item.delivery_status] += 1;
+        byAcknowledgement[item.acknowledgement_status] += 1;
       }
       return {
         items: all.slice(page * size, page * size + size),
         total: all.length,
-        summary: { by_severity: bySeverity, by_dispatch_status: byDispatch },
+        summary: {
+          by_severity: bySeverity,
+          by_delivery_status: byDelivery,
+          by_acknowledgement_status: byAcknowledgement,
+        },
       };
     },
     async countAll() {
       return state.notifications.size;
     },
     async countBySeverity() {
-      const result = { CRITICAL: 0, WARNING: 0, INFORMATIONAL: 0 };
+      const result = Object.fromEntries(SEVERITY_VALUES.map((value) => [value, 0]));
       for (const item of state.notifications.values()) {
         result[item.severity] += 1;
       }
       return result;
     },
-    async countByDispatchStatus() {
-      const result = { PENDING_DISPATCH: 0, SENT: 0, FAILED: 0 };
+    async countByDeliveryStatus() {
+      const result = Object.fromEntries(DELIVERY_STATUS_VALUES.map((value) => [value, 0]));
       for (const item of state.notifications.values()) {
-        result[item.dispatch_status] += 1;
+        result[item.delivery_status] += 1;
       }
       return result;
     },
@@ -152,11 +170,24 @@ const createInMemoryRepositories = (state = createInMemoryState()) => {
       return state.processedEvents.has(eventId);
     },
     async create(record) {
-      state.processedEvents.set(record.evento_id, record);
+      state.processedEvents.set(record.event_id, record);
     },
   };
 
-  return { alerts, notifications, processedEvents };
+  const outboxEvents = {
+    async create(record) {
+      state.outboxEvents.set(record.event_id, record);
+    },
+    async findById(eventId) {
+      return state.outboxEvents.get(eventId) ?? null;
+    },
+    async findPendingDue() {
+      return [];
+    },
+    async markPublished() {},
+  };
+
+  return { alerts, notifications, processedEvents, outboxEvents };
 };
 
 const createInMemoryUnitOfWork = (state = createInMemoryState()) => {
@@ -169,6 +200,7 @@ const createInMemoryUnitOfWork = (state = createInMemoryState()) => {
         alerts: new Map(state.alerts),
         notifications: new Map(state.notifications),
         processedEvents: new Map(state.processedEvents),
+        outboxEvents: new Map(state.outboxEvents),
       };
       try {
         return await work(repositories);
@@ -176,6 +208,7 @@ const createInMemoryUnitOfWork = (state = createInMemoryState()) => {
         state.alerts = snapshot.alerts;
         state.notifications = snapshot.notifications;
         state.processedEvents = snapshot.processedEvents;
+        state.outboxEvents = snapshot.outboxEvents;
         throw error;
       }
     },

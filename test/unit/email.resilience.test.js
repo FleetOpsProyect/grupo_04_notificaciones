@@ -3,7 +3,7 @@ const {
 } = require('../../src/adapters/out/email/resilient-email-sender.decorator');
 const { createConsoleEmailSender } = require('../../src/adapters/out/email/console-email-sender');
 const { EmailDeliveryError } = require('../../src/domain/errors');
-const { DispatchStatus } = require('../../src/domain/enums');
+const { DeliveryStatus } = require('../../src/domain/enums');
 const {
   createTestContext,
   createSilentLogger,
@@ -128,7 +128,7 @@ describe('Email sender resiliente', () => {
     sender.breaker.shutdown();
   });
 
-  test('un Circuit Breaker abierto libera la reserva y mantiene PENDING_DISPATCH', async () => {
+  test('un Circuit Breaker abierto libera la reserva y mantiene PENDING', async () => {
     const send = jest.fn().mockRejectedValue(new Error('network'));
     const sender = createSender({ send, threshold: 1, resetMs: 1000 });
     const context = createTestContext({ emailSender: sender });
@@ -147,14 +147,14 @@ describe('Email sender resiliente', () => {
     const notifications = [...context.state.notifications.values()];
     expect(
       notifications.every(
-        (notification) => notification.dispatch_status === DispatchStatus.PENDING_DISPATCH,
+        (notification) => notification.delivery_status === DeliveryStatus.PENDING,
       ),
     ).toBe(true);
     expect(notifications.every((notification) => notification.locked_until === null)).toBe(true);
 
-    const retried = notifications.find((notification) => notification.dispatch_attempts === 1);
+    const retried = notifications.find((notification) => notification.delivery_attempts === 1);
     expect(retried.next_attempt_at).toEqual(new Date(FIXED_NOW.getTime() + 30000));
-    const released = notifications.find((notification) => notification.dispatch_attempts === 0);
+    const released = notifications.find((notification) => notification.delivery_attempts === 0);
     expect(released).toBeDefined();
     sender.breaker.shutdown();
   });

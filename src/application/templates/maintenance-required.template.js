@@ -5,7 +5,13 @@ const formatKilometers = (value) => {
   return new Intl.NumberFormat('es-CO').format(Math.round(value));
 };
 
-const buildMaintenanceRequiredTemplate = ({ kilometros, vehiculoId, mantenimientoId }) => {
+const buildMaintenanceRequiredTemplate = ({
+  kilometrajeActual,
+  umbralKm,
+  motivo,
+  vehiculoId,
+  mantenimientoId,
+}) => {
   const subject = `[FleetOps] Mantenimiento preventivo requerido${
     vehiculoId ? ` para ${vehiculoId}` : ''
   }`;
@@ -16,9 +22,16 @@ const buildMaintenanceRequiredTemplate = ({ kilometros, vehiculoId, mantenimient
   if (vehiculoId) {
     lines.push(`Vehículo: ${vehiculoId}`);
   }
-  const formattedKilometers = formatKilometers(kilometros);
+  const formattedKilometers = formatKilometers(kilometrajeActual);
   if (formattedKilometers !== null) {
-    lines.push(`Kilometraje: ${formattedKilometers} km`);
+    lines.push(`Kilometraje actual: ${formattedKilometers} km`);
+  }
+  const formattedThreshold = formatKilometers(umbralKm);
+  if (formattedThreshold !== null) {
+    lines.push(`Umbral configurado: ${formattedThreshold} km`);
+  }
+  if (motivo) {
+    lines.push(`Motivo: ${motivo}`);
   }
   lines.push('Programe el mantenimiento en FleetOps.');
   return { subject, message: lines.join('\n') };

@@ -18,8 +18,8 @@ const {
   createGetNotificationUseCase,
 } = require('../../src/application/use-cases/get-notification.use-case');
 const {
-  createMarkAlertAttendedUseCase,
-} = require('../../src/application/use-cases/mark-alert-attended.use-case');
+  createAcknowledgeAlertUseCase,
+} = require('../../src/application/use-cases/acknowledge-alert.use-case');
 const {
   createDispatchPendingNotificationsUseCase,
 } = require('../../src/application/use-cases/dispatch-pending-notifications.use-case');
@@ -42,7 +42,7 @@ const createSilentLogger = () => ({
 
 const createTestMetrics = () => ({
   notificationsCreated: { inc: jest.fn() },
-  dispatchTotal: { inc: jest.fn() },
+  deliveryTotal: { inc: jest.fn() },
   eventsProcessed: { inc: jest.fn() },
   dlqMessages: { inc: jest.fn() },
   setCircuitBreakerState: jest.fn(),
@@ -96,7 +96,7 @@ const createTestContext = ({
     notificationRepository: repositories.notifications,
     recipientDirectory,
   });
-  const markAlertAttended = createMarkAlertAttendedUseCase({ unitOfWork, clock });
+  const acknowledgeAlert = createAcknowledgeAlertUseCase({ unitOfWork, clock });
   const dispatchPendingNotifications = createDispatchPendingNotificationsUseCase({
     notificationRepository: repositories.notifications,
     recipientDirectory,
@@ -126,20 +126,20 @@ const createTestContext = ({
       getNotificationStatus,
       listNotifications,
       getNotification,
-      markAlertAttended,
+      acknowledgeAlert,
       dispatchPendingNotifications,
     },
   };
 };
 
 const eventEnvelope = (overrides = {}) => ({
-  evento_id: '11111111-1111-4111-8111-111111111111',
-  tipo_evento: 'IncidenteReportadoEvent',
+  event_id: '11111111-1111-4111-8111-111111111111',
+  event_type: 'severe_incident_reported_event',
   version: 1,
-  fecha_evento: '2026-10-22T14:55:00.000Z',
-  origen: 'incident-service',
+  occurred_at: '2026-10-22T14:55:00.000Z',
+  source: 'incident-service',
   correlation_id: '22222222-2222-4222-8222-222222222222',
-  datos: {
+  data: {
     incidente_id: 'INC-001',
     vehiculo_id: 'VEH-001',
     tipo_incidente: 'Choque',

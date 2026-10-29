@@ -1,11 +1,28 @@
-const buildDocumentExpiringTemplate = ({ diasRestantes, documentoId, entidadTipo }) => {
-  const subject = `[FleetOps] Documento próximo a vencer en ${diasRestantes} días`;
+const buildDocumentExpiringTemplate = ({
+  daysRemaining,
+  documentId,
+  documentType,
+  ownerType,
+  thresholdDays,
+}) => {
+  const subject =
+    daysRemaining === null || daysRemaining === undefined
+      ? '[FleetOps] Documento próximo a vencer'
+      : `[FleetOps] Documento próximo a vencer en ${daysRemaining} días`;
   const lines = [
-    `Un documento${documentoId ? ` (${documentoId})` : ''} está próximo a vencer.`,
-    `Días restantes: ${diasRestantes}.`,
+    `Un documento${documentId ? ` (${documentId})` : ''} está próximo a vencer.`,
   ];
-  if (entidadTipo) {
-    lines.push(`Entidad asociada: ${entidadTipo}.`);
+  if (documentType) {
+    lines.push(`Tipo de documento: ${documentType}.`);
+  }
+  if (ownerType) {
+    lines.push(`Tipo de propietario: ${ownerType}.`);
+  }
+  if (daysRemaining !== null && daysRemaining !== undefined) {
+    lines.push(`Días restantes: ${daysRemaining}.`);
+  }
+  if (thresholdDays !== null && thresholdDays !== undefined) {
+    lines.push(`Umbral de alerta: ${thresholdDays} días.`);
   }
   lines.push('Revise la documentación en FleetOps.');
   return { subject, message: lines.join('\n') };

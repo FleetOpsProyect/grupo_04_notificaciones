@@ -108,11 +108,11 @@ Variables relevantes:
 
 | Método | Ruta                                 | Descripción                               |
 | ------ | ------------------------------------ | ----------------------------------------- |
-| `POST` | `/api/v1/notificaciones`             | Crea alerta y notificación manual         |
-| `GET`  | `/api/v1/notificaciones/estado`      | Conteos agregados                         |
-| `GET`  | `/api/v1/notificaciones`             | Listado con filtros, paginación y resumen |
-| `GET`  | `/api/v1/notificaciones/:id`         | Detalle con correo enmascarado            |
-| `PUT`  | `/api/v1/notificaciones/:id/atender` | Atención idempotente                      |
+| `POST` | `/notifications`                  | Crea alerta y notificación manual         |
+| `GET`  | `/notifications/status`           | Conteos agregados                         |
+| `GET`  | `/notifications`                  | Listado con filtros, paginación y resumen |
+| `GET`  | `/notifications/:id`              | Detalle con correo enmascarado            |
+| `PUT`  | `/notifications/:id/acknowledgement` | Reconocimiento idempotente             |
 | `GET`  | `/health`                            | Liveness                                  |
 | `GET`  | `/ready`                             | Readiness; `503` solo si Firestore falla  |
 | `GET`  | `/metrics`                           | Métricas Prometheus                       |
@@ -124,12 +124,12 @@ Contrato completo: `openapi/notification-service.yaml`.
 
 1. Kafka entrega un sobre con `evento_id`, `tipo_evento`, `fecha_evento`, `origen` y `datos`.
 2. El registry resuelve uno de los diez tipos de evento registrados.
-3. `ProcessDomainEvent` valida el payload y, en una transacción, crea la alerta, sus notificaciones
+3. `ProcessDomainEvent` valida el sobre y, en una transacción, crea la alerta, sus notificaciones
    y `processed_events/{evento_id}`.
-4. El scheduler toma notificaciones `PENDING_DISPATCH` vencidas, reserva con lease y envía correo.
+4. El scheduler toma notificaciones `PENDING` vencidas, reserva con lease y envía correo.
 5. Los fallos transitorios se reprograman; los permanentes o el agotamiento de intentos dejan
    `FAILED`. Un Circuit Breaker abierto libera la reserva y conserva `PENDING_DISPATCH`.
-6. `PUT /atender` actualiza la alerta y todas sus notificaciones a `ATTENDED`.
+6. `PUT /acknowledgement` actualiza la alerta y todas sus notificaciones a `ACKNOWLEDGED`.
 
 ## Comandos
 

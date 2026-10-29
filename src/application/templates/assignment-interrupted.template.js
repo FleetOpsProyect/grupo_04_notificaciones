@@ -1,21 +1,20 @@
-const buildAssignmentInterruptedTemplate = ({ resultado }) => {
+const RESULT_TEXT = Object.freeze({
+  MANUAL_REQUIRED: 'La asignación requiere gestión manual: debe crear una nueva solicitud.',
+  AUTOMATIC_FAILED: 'La reasignación automática falló: debe crear una nueva solicitud.',
+  AUTOMATIC_SUCCESSFUL: 'Ya tiene un vehículo asignado automáticamente.',
+});
+
+const buildAssignmentInterruptedTemplate = ({ reassignmentResult, newAssignmentId } = {}) => {
   const subject = '[FleetOps] Asignación interrumpida';
   const resultText =
-    resultado === 'MANUAL_REQUERIDA'
-      ? 'La asignación requiere gestión manual.'
-      : resultado === 'AUTOMATICA_FALLIDA'
-        ? 'La reasignación automática falló.'
-        : resultado === 'AUTOMATICA_EXITOSA'
-          ? 'La reasignación automática fue exitosa.'
-          : 'El resultado de la reasignación está pendiente de confirmar por el productor.';
-  return {
-    subject,
-    message: [
-      'Su asignación fue interrumpida.',
-      resultText,
-      'Ingrese a FleetOps para revisar el estado de su vehículo.',
-    ].join('\n'),
-  };
+    RESULT_TEXT[reassignmentResult] ??
+    'El resultado de la reasignación está pendiente de confirmar por el productor.';
+  const lines = ['Su asignación fue interrumpida.', resultText];
+  if (newAssignmentId) {
+    lines.push(`Nueva asignación: ${newAssignmentId}`);
+  }
+  lines.push('Ingrese a FleetOps para revisar el estado de su vehículo.');
+  return { subject, message: lines.join('\n') };
 };
 
 module.exports = { buildAssignmentInterruptedTemplate };

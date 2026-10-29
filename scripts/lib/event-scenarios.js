@@ -4,13 +4,13 @@ const buildScenarios = ({
   eventId = randomUUID(),
   correlationId = randomUUID(),
   ahora = new Date().toISOString(),
-  origen = 'local-smoke',
+  source = 'local-smoke',
 } = {}) => {
   const baseEnvelope = {
-    evento_id: eventId,
+    event_id: eventId,
     version: 1,
-    fecha_evento: ahora,
-    origen,
+    occurred_at: ahora,
+    source,
     correlation_id: correlationId,
   };
 
@@ -18,8 +18,8 @@ const buildScenarios = ({
     incident: {
       envelope: {
         ...baseEnvelope,
-        tipo_evento: 'IncidenteReportadoEvent',
-        datos: {
+        event_type: 'severe_incident_reported_event',
+        data: {
           incidente_id: `inc-${eventId}`,
           asignacion_id: `asg-${eventId}`,
           vehiculo_id: 'veh-smoke',
@@ -30,57 +30,101 @@ const buildScenarios = ({
         },
       },
     },
+    'minor-incident': {
+      envelope: {
+        ...baseEnvelope,
+        event_type: 'minor_incident_reported_event',
+        data: {
+          incidente_id: `inc-${eventId}`,
+          vehiculo_id: 'veh-smoke',
+          tipo_incidente: 'FALLA_LEVE',
+          requiere_asistencia: false,
+          fecha_reporte: ahora,
+        },
+      },
+    },
     assignment: {
       envelope: {
         ...baseEnvelope,
-        tipo_evento: 'AsignacionInterrumpidaEvent',
-        datos: {
-          empleado_email: 'conductor.prueba@example.invalid',
-          resultado: 'MANUAL_REQUERIDA',
-          asignacion_id: `asg-${eventId}`,
+        event_type: 'interrupted_assignment_event',
+        data: {
+          assignment_id: `asg-${eventId}`,
+          vehicle_id: 'veh-smoke',
+          driver_id: 'drv-smoke',
+          employee_id: 'emp-smoke',
+          employee_email: 'conductor.prueba@example.invalid',
+          incident_id: `inc-${eventId}`,
+          reassignment_result: 'MANUAL_REQUIRED',
         },
       },
     },
     'document-expiring': {
       envelope: {
         ...baseEnvelope,
-        tipo_evento: 'DocumentoProximoAVencerEvent',
-        datos: {
-          dias_restantes: 30,
-          documento_id: `doc-${eventId}`,
-          entidad_tipo: 'VEHICULO',
+        event_type: 'document_expiring_soon_event',
+        data: {
+          document_id: `doc-${eventId}`,
+          document_type: 'SOAT',
+          owner_type: 'VEHICLE',
+          owner_id: 'veh-smoke',
+          expiration_date: ahora,
+          threshold_days: 30,
+          days_remaining: 30,
         },
       },
     },
     'document-expired': {
       envelope: {
         ...baseEnvelope,
-        tipo_evento: 'DocumentoVencidoEvent',
-        datos: {
-          documento_id: `doc-${eventId}`,
-          entidad_tipo: 'VEHICULO',
+        event_type: 'document_expired_event',
+        data: {
+          document_id: `doc-${eventId}`,
+          document_type: 'SOAT',
+          owner_type: 'VEHICLE',
+          owner_id: 'veh-smoke',
+          expiration_date: ahora,
         },
       },
     },
     maintenance: {
       envelope: {
         ...baseEnvelope,
-        tipo_evento: 'MantenimientoPreventivoRequeridoEvent',
-        datos: {
-          kilometros: 150000,
-          vehiculo_id: 'veh-smoke',
+        event_type: 'MantenimientoPreventivoRequeridoEvent',
+        data: {
           mantenimiento_id: `mant-${eventId}`,
+          vehiculo_id: 'veh-smoke',
+          kilometraje_actual: 150000,
+          umbral_km: 150000,
+          motivo: 'Preventivo por kilometraje',
+        },
+      },
+    },
+    fuel: {
+      envelope: {
+        ...baseEnvelope,
+        event_type: 'fuel_anomaly_detected_event',
+        data: {
+          fuel_record_id: `fuel-${eventId}`,
+          assignment_id: `asg-${eventId}`,
+          vehicle_id: 'veh-smoke',
+          driver_id: 'drv-smoke',
+          route_id: `ruta-${eventId}`,
+          efficiency_km_per_gallon: 28.5,
+          average_efficiency_km_per_gallon: 42.1,
+          gallons_purchased: 10,
+          total_cost: 165000,
+          recorded_at: ahora,
         },
       },
     },
     'invalid-envelope': {
-      raw: '{"evento_id":"no-es-uuid","tipo_evento":"IncidenteReportadoEvent"}',
+      raw: '{"event_id":"no-es-uuid","event_type":"severe_incident_reported_event"}',
     },
     'invalid-data': {
       envelope: {
         ...baseEnvelope,
-        tipo_evento: 'IncidenteReportadoEvent',
-        datos: {
+        event_type: 'severe_incident_reported_event',
+        data: {
           incidente_id: `inc-${eventId}`,
         },
       },

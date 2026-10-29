@@ -9,8 +9,8 @@ const createMetrics = ({ registry = new client.Registry() } = {}) => {
     labelNames: ['type', 'severity'],
     registers: [registry],
   });
-  const dispatchTotal = new client.Counter({
-    name: 'notification_dispatch_total',
+  const deliveryTotal = new client.Counter({
+    name: 'notifications_delivery_total',
     help: 'Resultado de los intentos de envío',
     labelNames: ['result'],
     registers: [registry],
@@ -67,7 +67,7 @@ const createMetrics = ({ registry = new client.Registry() } = {}) => {
   return {
     registry,
     notificationsCreated,
-    dispatchTotal,
+    deliveryTotal,
     eventsProcessed,
     dlqMessages,
     circuitBreakerState,

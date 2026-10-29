@@ -7,24 +7,28 @@ const { parseEventData } = require('./event-data');
 const eventType = 'MantenimientoPreventivoRequeridoEvent';
 const maintenanceSchema = z
   .object({
-    kilometros: z.coerce.number().nonnegative().optional(),
-    vehiculo_id: z.string().min(1).optional(),
     mantenimiento_id: z.string().min(1).optional(),
+    vehiculo_id: z.string().min(1).optional(),
+    kilometraje_actual: z.coerce.number().nonnegative().optional(),
+    umbral_km: z.coerce.number().nonnegative().optional(),
+    motivo: z.string().min(1).optional(),
   })
   .passthrough();
 
 const buildPlan = (envelope) => {
-  const data = parseEventData(maintenanceSchema, envelope.datos, eventType);
+  const data = parseEventData(maintenanceSchema, envelope.data, eventType);
   const referenceId = data.mantenimiento_id ?? null;
   const template = buildMaintenanceRequiredTemplate({
-    kilometros: data.kilometros,
+    kilometrajeActual: data.kilometraje_actual,
+    umbralKm: data.umbral_km,
+    motivo: data.motivo,
     vehiculoId: data.vehiculo_id,
     mantenimientoId: data.mantenimiento_id,
   });
   return createNotificationPlan({
     alert: {
       source_event_type: eventType,
-      event_id: envelope.evento_id,
+      event_id: envelope.event_id,
       type: Type.MAINTENANCE,
       severity: Severity.WARNING,
       reference_id: referenceId,
@@ -41,4 +45,4 @@ const buildPlan = (envelope) => {
   });
 };
 
-module.exports = { eventType, buildPlan };
+module.exports = { eventType, buildPlan, maintenanceSchema };

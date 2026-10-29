@@ -20,8 +20,8 @@ const alertToDocument = (alert) => ({
   type: alert.type,
   severity: alert.severity,
   reference_id: alert.reference_id,
-  attention_status: alert.attention_status,
-  attended_at: toTimestamp(alert.attended_at),
+  acknowledgement_status: alert.acknowledgement_status,
+  acknowledged_at: toTimestamp(alert.acknowledged_at),
   correlation_id: alert.correlation_id,
   created_at: toTimestamp(alert.created_at),
 });
@@ -35,8 +35,8 @@ const documentToAlert = (id, data) =>
     type: data.type,
     severity: data.severity,
     reference_id: data.reference_id ?? null,
-    attention_status: data.attention_status,
-    attended_at: toDate(data.attended_at),
+    acknowledgement_status: data.acknowledgement_status,
+    acknowledged_at: toDate(data.acknowledged_at),
     correlation_id: data.correlation_id,
     created_at: toDate(data.created_at),
   });

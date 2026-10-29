@@ -1,8 +1,8 @@
 const { Alert } = require('../../src/domain/entities/alert');
 const { Notification } = require('../../src/domain/entities/notification');
 const {
-  AttentionStatus,
-  DispatchStatus,
+  AcknowledgementStatus,
+  DeliveryStatus,
   Origin,
   RecipientRole,
   Severity,
@@ -43,15 +43,15 @@ describe('Alert', () => {
   test('crea una alerta válida y detecta críticas pendientes', () => {
     const alert = baseAlert();
     expect(alert.isCriticalPending()).toBe(true);
-    expect(alert.attention_status).toBe(AttentionStatus.PENDING);
+    expect(alert.acknowledgement_status).toBe(AcknowledgementStatus.PENDING);
   });
 
-  test('marca como atendida de forma idempotente', () => {
+  test('marca como reconocida de forma idempotente', () => {
     const alert = baseAlert();
-    const attended = alert.markAttended(NOW);
-    expect(attended.attention_status).toBe(AttentionStatus.ATTENDED);
-    expect(attended.attended_at).toBe(NOW);
-    expect(attended.markAttended(new Date('2026-10-23T00:00:00Z'))).toBe(attended);
+    const attended = alert.acknowledge(NOW);
+    expect(attended.acknowledgement_status).toBe(AcknowledgementStatus.ACKNOWLEDGED);
+    expect(attended.acknowledged_at).toBe(NOW);
+    expect(attended.acknowledge(new Date('2026-10-23T00:00:00Z'))).toBe(attended);
     expect(attended.isCriticalPending()).toBe(false);
   });
 
@@ -60,28 +60,28 @@ describe('Alert', () => {
     [{ origin: 'OTRO' }, 'origin'],
     [{ type: 'OTRO' }, 'type'],
     [{ severity: 'OTRO' }, 'severity'],
-    [{ attention_status: 'OTRO' }, 'attention_status'],
+    [{ acknowledgement_status: 'OTRO' }, 'acknowledgement_status'],
     [{ created_at: 'no-date' }, 'created_at'],
-    [{ attended_at: 'no-date' }, 'attended_at'],
+    [{ acknowledged_at: 'no-date' }, 'acknowledged_at'],
     [
-      { attention_status: AttentionStatus.ATTENDED, attended_at: null },
-      'attended_at es obligatorio',
+      { acknowledgement_status: AcknowledgementStatus.ACKNOWLEDGED, acknowledged_at: null },
+      'acknowledged_at es obligatorio',
     ],
   ])('rechaza datos inválidos %#', (overrides, message) => {
     expect(() => baseAlert(overrides)).toThrow(message);
   });
 
   test('rechaza una fecha inválida al atender', () => {
-    expect(() => baseAlert().markAttended('ayer')).toThrow(InvalidDataError);
+    expect(() => baseAlert().acknowledge('ayer')).toThrow(InvalidDataError);
   });
 });
 
 describe('Notification', () => {
   test('crea una notificación pendiente por defecto', () => {
     const notification = baseNotification();
-    expect(notification.dispatch_status).toBe(DispatchStatus.PENDING_DISPATCH);
-    expect(notification.attention_status).toBe(AttentionStatus.PENDING);
-    expect(notification.dispatch_attempts).toBe(0);
+    expect(notification.delivery_status).toBe(DeliveryStatus.PENDING);
+    expect(notification.acknowledgement_status).toBe(AcknowledgementStatus.PENDING);
+    expect(notification.delivery_attempts).toBe(0);
     expect(notification.isFinal()).toBe(false);
   });
 
@@ -94,7 +94,7 @@ describe('Notification', () => {
   test('no reclama si no está pendiente, aún no vence o está bloqueada', () => {
     expect(
       baseNotification({
-        dispatch_status: DispatchStatus.SENT,
+        delivery_status: DeliveryStatus.SENT,
         sent_at: NOW,
       }).claim(NOW, 60000),
     ).toBeNull();
@@ -111,7 +111,7 @@ describe('Notification', () => {
 
   test('marca SENT y es idempotente', () => {
     const sent = baseNotification().markSent(NOW, 'provider-1');
-    expect(sent.dispatch_status).toBe(DispatchStatus.SENT);
+    expect(sent.delivery_status).toBe(DeliveryStatus.SENT);
     expect(sent.sent_at).toBe(NOW);
     expect(sent.next_attempt_at).toBeNull();
     expect(sent.failure_reason).toBeNull();
@@ -123,47 +123,47 @@ describe('Notification', () => {
     expect(() => baseNotification().markSent('ayer', 'provider')).toThrow(InvalidDataError);
     expect(() => baseNotification().markSent(NOW, null)).toThrow(InvalidDataError);
     expect(() =>
-      baseNotification({ dispatch_status: DispatchStatus.FAILED }).markSent(NOW, 'provider'),
+      baseNotification({ delivery_status: DeliveryStatus.FAILED }).markSent(NOW, 'provider'),
     ).toThrow(InvalidStateTransitionError);
   });
 
   test('marca FAILED y evita fallar una SENT', () => {
     const failed = baseNotification().markFailed(NOW, 'ERROR');
-    expect(failed.dispatch_status).toBe(DispatchStatus.FAILED);
-    expect(failed.dispatch_attempts).toBe(1);
+    expect(failed.delivery_status).toBe(DeliveryStatus.FAILED);
+    expect(failed.delivery_attempts).toBe(1);
     expect(failed.next_attempt_at).toBeNull();
     expect(failed.markFailed(NOW, 'OTRO')).toBe(failed);
     expect(() => baseNotification().markFailed(NOW, '')).toThrow(InvalidDataError);
     expect(() => baseNotification().markFailed('ayer', 'ERROR')).toThrow(InvalidDataError);
     expect(() =>
-      baseNotification({ dispatch_status: DispatchStatus.SENT, sent_at: NOW }).markFailed(
+      baseNotification({ delivery_status: DeliveryStatus.SENT, sent_at: NOW }).markFailed(
         NOW,
         'ERROR',
       ),
     ).toThrow(InvalidStateTransitionError);
   });
 
-  test('programa un reintento solo desde PENDING_DISPATCH', () => {
+  test('programa un reintento solo desde PENDING', () => {
     const retry = baseNotification().scheduleRetry(new Date('2026-10-22T15:30:00Z'), 'TIMEOUT', 2);
-    expect(retry.dispatch_attempts).toBe(2);
+    expect(retry.delivery_attempts).toBe(2);
     expect(retry.locked_until).toBeNull();
-    expect(retry.dispatch_status).toBe(DispatchStatus.PENDING_DISPATCH);
+    expect(retry.delivery_status).toBe(DeliveryStatus.PENDING);
     expect(() => baseNotification().scheduleRetry('ayer', 'TIMEOUT')).toThrow(InvalidDataError);
     expect(() => baseNotification().scheduleRetry(NOW, '')).toThrow(InvalidDataError);
     expect(() =>
       baseNotification({
-        dispatch_status: DispatchStatus.SENT,
+        delivery_status: DeliveryStatus.SENT,
         sent_at: NOW,
       }).scheduleRetry(NOW, 'TIMEOUT'),
     ).toThrow(InvalidStateTransitionError);
   });
 
-  test('marca la atención sin tocar el despacho', () => {
-    const attended = baseNotification().markAttended(NOW);
-    expect(attended.attention_status).toBe(AttentionStatus.ATTENDED);
-    expect(attended.dispatch_status).toBe(DispatchStatus.PENDING_DISPATCH);
-    expect(attended.markAttended(new Date())).toBe(attended);
-    expect(() => baseNotification().markAttended('ayer')).toThrow(InvalidDataError);
+  test('marca el reconocimiento sin tocar el despacho', () => {
+    const attended = baseNotification().acknowledge(NOW);
+    expect(attended.acknowledgement_status).toBe(AcknowledgementStatus.ACKNOWLEDGED);
+    expect(attended.delivery_status).toBe(DeliveryStatus.PENDING);
+    expect(attended.acknowledge(new Date())).toBe(attended);
+    expect(() => baseNotification().acknowledge('ayer')).toThrow(InvalidDataError);
   });
 
   test.each([
@@ -175,21 +175,21 @@ describe('Notification', () => {
     [{ severity: 'OTRO' }, 'severity'],
     [{ origin: 'OTRO' }, 'origin'],
     [{ recipient_role: 'OTRO' }, 'recipient_role'],
-    [{ attention_status: 'OTRO' }, 'attention_status'],
-    [{ dispatch_status: 'OTRO' }, 'dispatch_status'],
+    [{ acknowledgement_status: 'OTRO' }, 'acknowledgement_status'],
+    [{ delivery_status: 'OTRO' }, 'delivery_status'],
     [{ created_at: 'ayer' }, 'created_at'],
     [{ next_attempt_at: 'ayer' }, 'next_attempt_at'],
     [{ locked_until: 'ayer' }, 'locked_until'],
-    [{ attended_at: 'ayer' }, 'attended_at'],
+    [{ acknowledged_at: 'ayer' }, 'acknowledged_at'],
     [{ sent_at: 'ayer' }, 'sent_at'],
-    [{ dispatch_attempts: -1 }, 'dispatch_attempts'],
+    [{ delivery_attempts: -1 }, 'delivery_attempts'],
     [
-      { attention_status: AttentionStatus.ATTENDED, attended_at: null },
-      'attended_at es obligatorio',
+      { acknowledgement_status: AcknowledgementStatus.ACKNOWLEDGED, acknowledged_at: null },
+      'acknowledged_at es obligatorio',
     ],
-    [{ dispatch_status: DispatchStatus.SENT, sent_at: null }, 'sent_at es obligatorio'],
+    [{ delivery_status: DeliveryStatus.SENT, sent_at: null }, 'sent_at es obligatorio'],
     [
-      { dispatch_status: DispatchStatus.PENDING_DISPATCH, next_attempt_at: null },
+      { delivery_status: DeliveryStatus.PENDING, next_attempt_at: null },
       'next_attempt_at es obligatorio',
     ],
   ])('rechaza datos inválidos %#', (overrides, message) => {

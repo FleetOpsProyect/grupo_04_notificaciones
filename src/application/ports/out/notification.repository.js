@@ -1,6 +1,6 @@
 /**
  * NotificationRepository: createMany, findById, findByAlertId, findDuePending,
  * claimForDispatch, markSent, markFailed, scheduleRetry, releaseClaim,
- * markAttendedByAlertId, search, countAll, countBySeverity, countByDispatchStatus.
+ * acknowledgeByAlertId, search, countAll, countBySeverity, countByDeliveryStatus.
  */
 module.exports = {};

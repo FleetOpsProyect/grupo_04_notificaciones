@@ -16,7 +16,7 @@ const scenario = getArg('scenario') ?? args.find((item) => !item.startsWith('--'
 const eventId = getArg('event-id') ?? randomUUID();
 const correlationId = getArg('correlation-id') ?? randomUUID();
 
-const scenarios = buildScenarios({ eventId, correlationId, origen: 'sqs-local-smoke' });
+const scenarios = buildScenarios({ eventId, correlationId, source: 'sqs-local-smoke' });
 const selected = scenarios[scenario];
 
 if (!selected) {
@@ -37,9 +37,9 @@ if (!selected) {
     });
 
     const body = selected.raw ?? JSON.stringify(selected.envelope);
-    const groupId = getArg('group-id') ?? selected.envelope?.evento_id ?? `invalid-${Date.now()}`;
+    const groupId = getArg('group-id') ?? selected.envelope?.event_id ?? `invalid-${Date.now()}`;
     const dedupId =
-      getArg('dedup-id') ?? selected.envelope?.evento_id ?? `invalid-${Date.now()}-${Math.random()}`;
+      getArg('dedup-id') ?? selected.envelope?.event_id ?? `invalid-${Date.now()}-${Math.random()}`;
 
     try {
       const response = await sqsClient.send(
@@ -51,7 +51,7 @@ if (!selected) {
           MessageAttributes: {
             event_type: {
               DataType: 'String',
-              StringValue: selected.envelope?.tipo_evento ?? 'UNKNOWN',
+              StringValue: selected.envelope?.event_type ?? 'UNKNOWN',
             },
             scenario: {
               DataType: 'String',
@@ -67,7 +67,7 @@ if (!selected) {
             scenario,
             queue_url: config.sqs.queueUrl,
             message_id: response.MessageId ?? null,
-            event_id: selected.envelope?.evento_id ?? null,
+            event_id: selected.envelope?.event_id ?? null,
             correlation_id: selected.envelope?.correlation_id ?? null,
             group_id: groupId,
             dedup_id: dedupId,

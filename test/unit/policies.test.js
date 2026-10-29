@@ -4,16 +4,16 @@ const {
   DEFAULT_RETRY_DELAYS_MS,
 } = require('../../src/domain/policies/dispatch.policy');
 const {
-  nextAttentionStatus,
-  shouldPreserveAttendedAt,
+  nextAcknowledgementStatus,
+  shouldPreserveAcknowledgedAt,
 } = require('../../src/domain/policies/attention.policy');
 const {
   normalizeRecipientEmail,
   isValidRecipientEmail,
 } = require('../../src/domain/value-objects/recipient-email');
 const {
-  AttentionStatus,
-  DispatchStatus,
+  AcknowledgementStatus,
+  DeliveryStatus,
   Origin,
   RecipientRole,
   Severity,
@@ -25,27 +25,27 @@ const NOW = new Date('2026-10-22T15:00:00.000Z');
 
 describe('dispatch policy', () => {
   test('calcula reintentos y el intento final', () => {
-    expect(decideFailure({ dispatchAttempts: 0 })).toEqual({
+    expect(decideFailure({ deliveryAttempts: 0 })).toEqual({
       attempts: 1,
       final: false,
       delayMs: DEFAULT_RETRY_DELAYS_MS[0],
     });
-    expect(decideFailure({ dispatchAttempts: 2 })).toEqual({
+    expect(decideFailure({ deliveryAttempts: 2 })).toEqual({
       attempts: 3,
       final: false,
       delayMs: DEFAULT_RETRY_DELAYS_MS[2],
     });
-    expect(decideFailure({ dispatchAttempts: 3 })).toEqual({
+    expect(decideFailure({ deliveryAttempts: 3 })).toEqual({
       attempts: 4,
       final: true,
       delayMs: null,
     });
-    expect(decideFailure({ dispatchAttempts: 0, retryDelaysMs: [10], maxAttempts: 5 })).toEqual({
+    expect(decideFailure({ deliveryAttempts: 0, retryDelaysMs: [10], maxAttempts: 5 })).toEqual({
       attempts: 1,
       final: false,
       delayMs: 10,
     });
-    expect(decideFailure({ dispatchAttempts: 1, retryDelaysMs: [10], maxAttempts: 5 })).toEqual({
+    expect(decideFailure({ deliveryAttempts: 1, retryDelaysMs: [10], maxAttempts: 5 })).toEqual({
       attempts: 2,
       final: true,
       delayMs: null,
@@ -57,7 +57,7 @@ describe('dispatch policy', () => {
       notification_id: 'n-1',
       alert_id: 'a-1',
       type: Type.GENERAL,
-      severity: Severity.INFORMATIONAL,
+      severity: Severity.INFO,
       recipient_role: RecipientRole.MANAGEMENT,
       subject: 'Asunto',
       message: 'Mensaje',
@@ -71,7 +71,7 @@ describe('dispatch policy', () => {
       isDispatchDue(
         new Notification({
           ...base,
-          dispatch_status: DispatchStatus.SENT,
+          delivery_status: DeliveryStatus.SENT,
           sent_at: NOW,
         }),
         NOW,
@@ -99,11 +99,15 @@ describe('dispatch policy', () => {
 });
 
 describe('attention policy', () => {
-  test('mantiene la atención idempotente', () => {
-    expect(nextAttentionStatus(AttentionStatus.PENDING)).toBe(AttentionStatus.ATTENDED);
-    expect(nextAttentionStatus(AttentionStatus.ATTENDED)).toBe(AttentionStatus.ATTENDED);
-    expect(shouldPreserveAttendedAt(AttentionStatus.ATTENDED)).toBe(true);
-    expect(shouldPreserveAttendedAt(AttentionStatus.PENDING)).toBe(false);
+  test('mantiene el reconocimiento idempotente', () => {
+    expect(nextAcknowledgementStatus(AcknowledgementStatus.PENDING)).toBe(
+      AcknowledgementStatus.ACKNOWLEDGED,
+    );
+    expect(nextAcknowledgementStatus(AcknowledgementStatus.ACKNOWLEDGED)).toBe(
+      AcknowledgementStatus.ACKNOWLEDGED,
+    );
+    expect(shouldPreserveAcknowledgedAt(AcknowledgementStatus.ACKNOWLEDGED)).toBe(true);
+    expect(shouldPreserveAcknowledgedAt(AcknowledgementStatus.PENDING)).toBe(false);
   });
 });
 

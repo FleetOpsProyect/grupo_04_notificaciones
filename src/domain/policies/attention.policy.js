@@ -1,12 +1,13 @@
-const { AttentionStatus } = require('../enums');
+const { AcknowledgementStatus } = require('../enums');
 
-const nextAttentionStatus = (current) => {
-  if (current === AttentionStatus.ATTENDED) {
-    return AttentionStatus.ATTENDED;
+const nextAcknowledgementStatus = (current) => {
+  if (current === AcknowledgementStatus.ACKNOWLEDGED) {
+    return AcknowledgementStatus.ACKNOWLEDGED;
   }
-  return AttentionStatus.ATTENDED;
+  return AcknowledgementStatus.ACKNOWLEDGED;
 };
 
-const shouldPreserveAttendedAt = (current) => current === AttentionStatus.ATTENDED;
+const shouldPreserveAcknowledgedAt = (current) =>
+  current === AcknowledgementStatus.ACKNOWLEDGED;
 
-module.exports = { nextAttentionStatus, shouldPreserveAttendedAt };
+module.exports = { nextAcknowledgementStatus, shouldPreserveAcknowledgedAt };

@@ -1,8 +1,8 @@
 const {
-  AttentionStatus,
-  ATTENTION_STATUS_VALUES,
-  DispatchStatus,
-  DISPATCH_STATUS_VALUES,
+  AcknowledgementStatus,
+  ACKNOWLEDGEMENT_STATUS_VALUES,
+  DeliveryStatus,
+  DELIVERY_STATUS_VALUES,
   ORIGIN_VALUES,
   RECIPIENT_ROLE_VALUES,
   SEVERITY_VALUES,
@@ -40,10 +40,10 @@ class Notification {
     source_event_type = null,
     event_id = null,
     correlation_id,
-    attention_status = AttentionStatus.PENDING,
-    attended_at = null,
-    dispatch_status = DispatchStatus.PENDING_DISPATCH,
-    dispatch_attempts = 0,
+    acknowledgement_status = AcknowledgementStatus.PENDING,
+    acknowledged_at = null,
+    delivery_status = DeliveryStatus.PENDING,
+    delivery_attempts = 0,
     next_attempt_at,
     locked_until = null,
     failure_reason = null,
@@ -61,26 +61,31 @@ class Notification {
     assertEnum('severity', severity, SEVERITY_VALUES);
     assertEnum('origin', origin, ORIGIN_VALUES);
     assertEnum('recipient_role', recipient_role, RECIPIENT_ROLE_VALUES);
-    assertEnum('attention_status', attention_status, ATTENTION_STATUS_VALUES);
-    assertEnum('dispatch_status', dispatch_status, DISPATCH_STATUS_VALUES);
+    assertEnum('acknowledgement_status', acknowledgement_status, ACKNOWLEDGEMENT_STATUS_VALUES);
+    assertEnum('delivery_status', delivery_status, DELIVERY_STATUS_VALUES);
     assertDate('created_at', created_at);
     assertDate('next_attempt_at', next_attempt_at, { nullable: true });
     assertDate('locked_until', locked_until, { nullable: true });
-    assertDate('attended_at', attended_at, { nullable: true });
+    assertDate('acknowledged_at', acknowledged_at, { nullable: true });
     assertDate('sent_at', sent_at, { nullable: true });
 
-    if (!Number.isInteger(dispatch_attempts) || dispatch_attempts < 0) {
-      throw new InvalidDataError('dispatch_attempts debe ser un entero no negativo');
+    if (!Number.isInteger(delivery_attempts) || delivery_attempts < 0) {
+      throw new InvalidDataError('delivery_attempts debe ser un entero no negativo');
     }
-    if (attention_status === AttentionStatus.ATTENDED && attended_at === null) {
-      throw new InvalidDataError('attended_at es obligatorio cuando la notificación fue atendida');
-    }
-    if (dispatch_status === DispatchStatus.SENT && sent_at === null) {
-      throw new InvalidDataError('sent_at es obligatorio cuando dispatch_status es SENT');
-    }
-    if (dispatch_status === DispatchStatus.PENDING_DISPATCH && next_attempt_at === null) {
+    if (
+      acknowledgement_status === AcknowledgementStatus.ACKNOWLEDGED &&
+      acknowledged_at === null
+    ) {
       throw new InvalidDataError(
-        'next_attempt_at es obligatorio cuando dispatch_status es PENDING_DISPATCH',
+        'acknowledged_at es obligatorio cuando la notificación fue reconocida',
+      );
+    }
+    if (delivery_status === DeliveryStatus.SENT && sent_at === null) {
+      throw new InvalidDataError('sent_at es obligatorio cuando delivery_status es SENT');
+    }
+    if (delivery_status === DeliveryStatus.PENDING && next_attempt_at === null) {
+      throw new InvalidDataError(
+        'next_attempt_at es obligatorio cuando delivery_status es PENDING',
       );
     }
 
@@ -97,10 +102,10 @@ class Notification {
     this.source_event_type = source_event_type;
     this.event_id = event_id;
     this.correlation_id = correlation_id;
-    this.attention_status = attention_status;
-    this.attended_at = attended_at;
-    this.dispatch_status = dispatch_status;
-    this.dispatch_attempts = dispatch_attempts;
+    this.acknowledgement_status = acknowledgement_status;
+    this.acknowledged_at = acknowledged_at;
+    this.delivery_status = delivery_status;
+    this.delivery_attempts = delivery_attempts;
     this.next_attempt_at = next_attempt_at;
     this.locked_until = locked_until;
     this.failure_reason = failure_reason;
@@ -111,12 +116,13 @@ class Notification {
 
   isFinal() {
     return (
-      this.dispatch_status === DispatchStatus.SENT || this.dispatch_status === DispatchStatus.FAILED
+      this.delivery_status === DeliveryStatus.SENT ||
+      this.delivery_status === DeliveryStatus.FAILED
     );
   }
 
   claim(now, leaseMs) {
-    if (this.dispatch_status !== DispatchStatus.PENDING_DISPATCH) {
+    if (this.delivery_status !== DeliveryStatus.PENDING) {
       return null;
     }
     if (this.next_attempt_at === null || this.next_attempt_at.getTime() > now.getTime()) {
@@ -137,10 +143,10 @@ class Notification {
 
   markSent(now, providerMessageId) {
     assertDate('sent_at', now);
-    if (this.dispatch_status === DispatchStatus.SENT) {
+    if (this.delivery_status === DeliveryStatus.SENT) {
       return this;
     }
-    if (this.dispatch_status === DispatchStatus.FAILED) {
+    if (this.delivery_status === DeliveryStatus.FAILED) {
       throw new InvalidStateTransitionError('No se puede enviar una notificación FAILED');
     }
     if (!providerMessageId) {
@@ -148,7 +154,7 @@ class Notification {
     }
     return new Notification({
       ...this,
-      dispatch_status: DispatchStatus.SENT,
+      delivery_status: DeliveryStatus.SENT,
       sent_at: now,
       next_attempt_at: null,
       locked_until: null,
@@ -157,12 +163,12 @@ class Notification {
     });
   }
 
-  markFailed(now, reason, attempts = this.dispatch_attempts + 1) {
+  markFailed(now, reason, attempts = this.delivery_attempts + 1) {
     assertDate('failed_at', now);
-    if (this.dispatch_status === DispatchStatus.FAILED) {
+    if (this.delivery_status === DeliveryStatus.FAILED) {
       return this;
     }
-    if (this.dispatch_status === DispatchStatus.SENT) {
+    if (this.delivery_status === DeliveryStatus.SENT) {
       throw new InvalidStateTransitionError('No se puede fallar una notificación SENT');
     }
     if (!reason) {
@@ -170,17 +176,17 @@ class Notification {
     }
     return new Notification({
       ...this,
-      dispatch_status: DispatchStatus.FAILED,
-      dispatch_attempts: attempts,
+      delivery_status: DeliveryStatus.FAILED,
+      delivery_attempts: attempts,
       next_attempt_at: null,
       locked_until: null,
       failure_reason: reason,
     });
   }
 
-  scheduleRetry(nextAttemptAt, reason, attempts = this.dispatch_attempts + 1) {
+  scheduleRetry(nextAttemptAt, reason, attempts = this.delivery_attempts + 1) {
     assertDate('next_attempt_at', nextAttemptAt);
-    if (this.dispatch_status !== DispatchStatus.PENDING_DISPATCH) {
+    if (this.delivery_status !== DeliveryStatus.PENDING) {
       throw new InvalidStateTransitionError('Solo se reprograma una notificación pendiente');
     }
     if (!reason) {
@@ -188,22 +194,22 @@ class Notification {
     }
     return new Notification({
       ...this,
-      dispatch_attempts: attempts,
+      delivery_attempts: attempts,
       next_attempt_at: nextAttemptAt,
       locked_until: null,
       failure_reason: reason,
     });
   }
 
-  markAttended(at) {
-    assertDate('attended_at', at);
-    if (this.attention_status === AttentionStatus.ATTENDED) {
+  acknowledge(at) {
+    assertDate('acknowledged_at', at);
+    if (this.acknowledgement_status === AcknowledgementStatus.ACKNOWLEDGED) {
       return this;
     }
     return new Notification({
       ...this,
-      attention_status: AttentionStatus.ATTENDED,
-      attended_at: at,
+      acknowledgement_status: AcknowledgementStatus.ACKNOWLEDGED,
+      acknowledged_at: at,
     });
   }
 }

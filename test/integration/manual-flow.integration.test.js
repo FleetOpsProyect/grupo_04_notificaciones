@@ -16,8 +16,8 @@ const {
   createNotificationFirestoreRepository,
 } = require('../../src/adapters/out/firestore/notification.firestore.repository');
 const {
-  AttentionStatus,
-  DispatchStatus,
+  AcknowledgementStatus,
+  DeliveryStatus,
   Origin,
   RecipientRole,
   Severity,
@@ -70,10 +70,10 @@ const buildSecondNotification = (alertId, referenceId) =>
     source_event_type: null,
     event_id: null,
     correlation_id: randomUUID(),
-    attention_status: AttentionStatus.PENDING,
-    attended_at: null,
-    dispatch_status: DispatchStatus.PENDING_DISPATCH,
-    dispatch_attempts: 0,
+    acknowledgement_status: AcknowledgementStatus.PENDING,
+    acknowledged_at: null,
+    delivery_status: DeliveryStatus.PENDING,
+    delivery_attempts: 0,
     next_attempt_at: new Date(Date.now() + 60 * 60 * 1000),
     locked_until: null,
     failure_reason: null,
@@ -107,18 +107,18 @@ describeFirestore('flujo manual con Firestore real y correo simulado', () => {
     }));
   });
 
-  test('POST manual -> Firestore -> scheduler -> correo y PUT /atender', async () => {
+  test('POST manual -> Firestore -> scheduler -> correo y PUT /acknowledgement', async () => {
     const container = createContainer(buildConfig());
     const referenceId = createReferenceId();
 
     try {
       const created = await request(container.app)
-        .post('/api/v1/notificaciones')
+        .post('/notifications')
         .send(manualPayload(referenceId))
         .expect(201);
 
       expect(created.body).toMatchObject({
-        dispatch_status: DispatchStatus.PENDING_DISPATCH,
+        delivery_status: DeliveryStatus.PENDING,
         alert_id: expect.any(String),
         notification_id: expect.any(String),
       });
@@ -130,7 +130,7 @@ describeFirestore('flujo manual con Firestore real y correo simulado', () => {
       expect(alertSnapshot.exists).toBe(true);
       expect(alertSnapshot.data()).toMatchObject({
         reference_id: referenceId,
-        attention_status: AttentionStatus.PENDING,
+        acknowledgement_status: AcknowledgementStatus.PENDING,
       });
 
       const notificationSnapshot = await container.firestore.db
@@ -140,7 +140,7 @@ describeFirestore('flujo manual con Firestore real y correo simulado', () => {
       expect(notificationSnapshot.exists).toBe(true);
       expect(notificationSnapshot.data()).toMatchObject({
         reference_id: referenceId,
-        dispatch_status: DispatchStatus.PENDING_DISPATCH,
+        delivery_status: DeliveryStatus.PENDING,
       });
 
       const second = buildSecondNotification(created.body.alert_id, referenceId);
@@ -161,26 +161,26 @@ describeFirestore('flujo manual con Firestore real y correo simulado', () => {
         .doc(created.body.notification_id)
         .get();
       expect(sentSnapshot.data()).toMatchObject({
-        dispatch_status: DispatchStatus.SENT,
+        delivery_status: DeliveryStatus.SENT,
         provider_message_id: `test-${created.body.notification_id}`,
       });
       expect(sentSnapshot.data().sent_at).toBeTruthy();
 
       const attended = await request(container.app)
-        .put(`/api/v1/notificaciones/${created.body.notification_id}/atender`)
+        .put(`/notifications/${created.body.notification_id}/acknowledgement`)
         .expect(200);
       expect(attended.body).toMatchObject({
         notification_id: created.body.notification_id,
         alert_id: created.body.alert_id,
-        attention_status: AttentionStatus.ATTENDED,
+        acknowledgement_status: AcknowledgementStatus.ACKNOWLEDGED,
       });
 
       const attendedAlert = await container.firestore.db
         .collection('alerts')
         .doc(created.body.alert_id)
         .get();
-      expect(attendedAlert.data().attention_status).toBe(AttentionStatus.ATTENDED);
-      expect(attendedAlert.data().attended_at).toBeTruthy();
+      expect(attendedAlert.data().acknowledgement_status).toBe(AcknowledgementStatus.ACKNOWLEDGED);
+      expect(attendedAlert.data().acknowledged_at).toBeTruthy();
 
       const notifications = await container.firestore.db
         .collection('notifications')
@@ -188,8 +188,8 @@ describeFirestore('flujo manual con Firestore real y correo simulado', () => {
         .get();
       expect(notifications.size).toBe(2);
       for (const document of notifications.docs) {
-        expect(document.data().attention_status).toBe(AttentionStatus.ATTENDED);
-        expect(document.data().attended_at).toBeTruthy();
+        expect(document.data().acknowledgement_status).toBe(AcknowledgementStatus.ACKNOWLEDGED);
+        expect(document.data().acknowledged_at).toBeTruthy();
       }
     } finally {
       await cleanupByReference(container.firestore.db, referenceId);
@@ -204,7 +204,7 @@ describeFirestore('flujo manual con Firestore real y correo simulado', () => {
 
     try {
       const created = await request(firstContainer.app)
-        .post('/api/v1/notificaciones')
+        .post('/notifications')
         .send(manualPayload(referenceId))
         .expect(201);
 
@@ -226,7 +226,7 @@ describeFirestore('flujo manual con Firestore real y correo simulado', () => {
         .collection('notifications')
         .doc(created.body.notification_id)
         .get();
-      expect(stored.data().dispatch_status).toBe(DispatchStatus.SENT);
+      expect(stored.data().delivery_status).toBe(DeliveryStatus.SENT);
     } finally {
       const activeContainer = secondContainer ?? firstContainer;
       if (activeContainer) {
@@ -242,11 +242,11 @@ describeFirestore('flujo manual con Firestore real y correo simulado', () => {
 
     try {
       const first = await request(container.app)
-        .post('/api/v1/notificaciones')
+        .post('/notifications')
         .send(manualPayload(referenceId))
         .expect(201);
       const second = await request(container.app)
-        .post('/api/v1/notificaciones')
+        .post('/notifications')
         .send(manualPayload(referenceId, { recipient_role: RecipientRole.MANAGEMENT }))
         .expect(201);
 
@@ -269,7 +269,7 @@ describeFirestore('flujo manual con Firestore real y correo simulado', () => {
         .doc(first.body.notification_id)
         .get();
       expect(failed.data()).toMatchObject({
-        dispatch_status: DispatchStatus.FAILED,
+        delivery_status: DeliveryStatus.FAILED,
         failure_reason: 'EMAIL_INVALID',
         next_attempt_at: null,
       });
@@ -279,7 +279,7 @@ describeFirestore('flujo manual con Firestore real y correo simulado', () => {
         .doc(second.body.notification_id)
         .get();
       expect(sent.data()).toMatchObject({
-        dispatch_status: DispatchStatus.SENT,
+        delivery_status: DeliveryStatus.SENT,
         provider_message_id: `test-${second.body.notification_id}`,
       });
     } finally {

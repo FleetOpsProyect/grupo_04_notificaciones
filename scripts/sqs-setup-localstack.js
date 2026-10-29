@@ -65,7 +65,7 @@ const main = async () => {
     }),
   );
 
-  const topicArn = await ensureTopic('fleetops-notifications.fifo');
+  const topicArn = await ensureTopic('fleetops_notification_events.fifo');
 
   console.log('\n=== Recursos creados ===');
   console.log('BROKER_TYPE=sqs');

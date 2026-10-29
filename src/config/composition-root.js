@@ -44,8 +44,8 @@ const {
   createGetNotificationUseCase,
 } = require('../application/use-cases/get-notification.use-case');
 const {
-  createMarkAlertAttendedUseCase,
-} = require('../application/use-cases/mark-alert-attended.use-case');
+  createAcknowledgeAlertUseCase,
+} = require('../application/use-cases/acknowledge-alert.use-case');
 const {
   createDispatchPendingNotificationsUseCase,
 } = require('../application/use-cases/dispatch-pending-notifications.use-case');
@@ -107,7 +107,7 @@ const createContainer = (config) => {
     notificationRepository,
     recipientDirectory,
   });
-  const markAlertAttended = createMarkAlertAttendedUseCase({ unitOfWork, clock });
+  const acknowledgeAlert = createAcknowledgeAlertUseCase({ unitOfWork, clock });
   const dispatchPendingNotifications = createDispatchPendingNotificationsUseCase({
     notificationRepository,
     recipientDirectory,
@@ -126,7 +126,7 @@ const createContainer = (config) => {
     getNotificationStatus,
     listNotifications,
     getNotification,
-    markAlertAttended,
+    acknowledgeAlert,
   });
 
   const brokerType = config.broker?.type || (config.kafka.enabled ? 'kafka' : 'kafka');
@@ -259,7 +259,7 @@ const createContainer = (config) => {
       getNotificationStatus,
       listNotifications,
       getNotification,
-      markAlertAttended,
+      acknowledgeAlert,
       dispatchPendingNotifications,
     },
     app,

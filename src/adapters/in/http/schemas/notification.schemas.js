@@ -1,7 +1,7 @@
 const { z } = require('zod');
 const {
-  ATTENTION_STATUS_VALUES,
-  DISPATCH_STATUS_VALUES,
+  ACKNOWLEDGEMENT_STATUS_VALUES,
+  DELIVERY_STATUS_VALUES,
   SEVERITY_VALUES,
   TYPE_VALUES,
 } = require('../../../../domain/enums');
@@ -35,8 +35,8 @@ const listQuerySchema = z.object({
     .optional(),
   type: z.enum(TYPE_VALUES).optional(),
   severity: z.enum(SEVERITY_VALUES).optional(),
-  dispatch_status: z.enum(DISPATCH_STATUS_VALUES).optional(),
-  attention_status: z.enum(ATTENTION_STATUS_VALUES).optional(),
+  delivery_status: z.enum(DELIVERY_STATUS_VALUES).optional(),
+  acknowledgement_status: z.enum(ACKNOWLEDGEMENT_STATUS_VALUES).optional(),
   reference_id: z.string().trim().min(1).max(50).optional(),
   date_from: dateFilter.optional(),
   date_to: dateFilter.optional(),

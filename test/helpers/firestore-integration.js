@@ -17,16 +17,16 @@ const {
   createProcessDomainEventUseCase,
 } = require('../../src/application/use-cases/process-domain-event.use-case');
 const {
-  createMarkAlertAttendedUseCase,
-} = require('../../src/application/use-cases/mark-alert-attended.use-case');
+  createAcknowledgeAlertUseCase,
+} = require('../../src/application/use-cases/acknowledge-alert.use-case');
 const {
   createEventHandlerRegistry,
 } = require('../../src/application/handlers/event-handler.registry');
 const { Alert } = require('../../src/domain/entities/alert');
 const { Notification } = require('../../src/domain/entities/notification');
 const {
-  AttentionStatus,
-  DispatchStatus,
+  AcknowledgementStatus,
+  DeliveryStatus,
   Origin,
   RecipientRole,
   Severity,
@@ -43,7 +43,7 @@ const silentLogger = {
 const noopMetrics = {
   eventsProcessed: { inc() {} },
   notificationsCreated: { inc() {} },
-  dispatchTotal: { inc() {} },
+  deliveryTotal: { inc() {} },
   dlqMessages: { inc() {} },
   setCircuitBreakerState() {},
 };
@@ -71,7 +71,7 @@ const createFirestoreIntegrationContext = () => {
     metrics: noopMetrics,
     logger: silentLogger,
   });
-  const markAlertAttendedUseCase = createMarkAlertAttendedUseCase({ unitOfWork, clock });
+  const acknowledgeAlertUseCase = createAcknowledgeAlertUseCase({ unitOfWork, clock });
 
   const trackAlert = (id) => created.alerts.add(id);
   const trackNotification = (id) => created.notifications.add(id);
@@ -91,7 +91,7 @@ const createFirestoreIntegrationContext = () => {
     return result;
   };
 
-  const markAlertAttended = (notificationId) => markAlertAttendedUseCase(notificationId);
+  const acknowledgeAlert = (notificationId) => acknowledgeAlertUseCase(notificationId);
 
   const createAlert = (overrides = {}) => {
     const alertId = randomUUID();
@@ -99,13 +99,13 @@ const createFirestoreIntegrationContext = () => {
     return new Alert({
       alert_id: alertId,
       origin: Origin.EVENT,
-      source_event_type: 'IncidenteReportadoEvent',
+      source_event_type: 'severe_incident_reported_event',
       event_id: randomUUID(),
       type: Type.INCIDENT,
       severity: Severity.CRITICAL,
       reference_id: runId,
-      attention_status: AttentionStatus.PENDING,
-      attended_at: null,
+      acknowledgement_status: AcknowledgementStatus.PENDING,
+      acknowledged_at: null,
       correlation_id: randomUUID(),
       created_at: new Date(),
       ...overrides,
@@ -126,13 +126,13 @@ const createFirestoreIntegrationContext = () => {
       message: 'Mensaje de integración',
       reference_id: runId,
       origin: Origin.EVENT,
-      source_event_type: 'IncidenteReportadoEvent',
+      source_event_type: 'severe_incident_reported_event',
       event_id: randomUUID(),
       correlation_id: randomUUID(),
-      attention_status: AttentionStatus.PENDING,
-      attended_at: null,
-      dispatch_status: DispatchStatus.PENDING_DISPATCH,
-      dispatch_attempts: 0,
+      acknowledgement_status: AcknowledgementStatus.PENDING,
+      acknowledged_at: null,
+      delivery_status: DeliveryStatus.PENDING,
+      delivery_attempts: 0,
       next_attempt_at: new Date(),
       locked_until: null,
       failure_reason: null,
@@ -144,13 +144,13 @@ const createFirestoreIntegrationContext = () => {
   };
 
   const makeIncidentEnvelope = (overrides = {}) => ({
-    evento_id: randomUUID(),
-    tipo_evento: 'IncidenteReportadoEvent',
+    event_id: randomUUID(),
+    event_type: 'severe_incident_reported_event',
     version: 1,
-    fecha_evento: new Date().toISOString(),
-    origen: 'incident-service',
+    occurred_at: new Date().toISOString(),
+    source: 'incident-service',
     correlation_id: randomUUID(),
-    datos: {
+    data: {
       incidente_id: `INC-${runId}`,
       vehiculo_id: 'VEH-IT',
       tipo_incidente: 'Choque',
@@ -186,7 +186,7 @@ const createFirestoreIntegrationContext = () => {
     created,
     runId,
     processDomainEvent,
-    markAlertAttended,
+    acknowledgeAlert,
     createAlert,
     createNotification,
     makeIncidentEnvelope,

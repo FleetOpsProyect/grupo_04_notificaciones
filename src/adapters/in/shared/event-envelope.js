@@ -3,18 +3,18 @@ const { z } = require('zod');
 const { InvalidDataError } = require('../../../domain/errors');
 
 const eventEnvelopeSchema = z.object({
-  evento_id: z.string().uuid(),
-  tipo_evento: z.string().min(1),
-  version: z.union([z.literal(1), z.literal('1'), z.literal('1.0')]).optional(),
-  fecha_evento: z.string().refine((value) => !Number.isNaN(Date.parse(value)), {
-    message: 'fecha_evento debe ser ISO 8601',
+  event_id: z.string().uuid(),
+  event_type: z.string().min(1),
+  version: z.union([z.number(), z.string()]).optional(),
+  occurred_at: z.string().refine((value) => !Number.isNaN(Date.parse(value)), {
+    message: 'occurred_at debe ser ISO 8601',
   }),
-  origen: z.string().min(1),
+  source: z.string().min(1),
   correlation_id: z.string().min(1).optional(),
-  datos: z.object({}).passthrough(),
+  data: z.object({}).passthrough(),
 });
 
-const parseEventEnvelope = (rawValue) => {
+const parseEventEnvelope = (rawValue, { attributeEventType = null } = {}) => {
   let parsed;
   try {
     parsed = JSON.parse(rawValue.toString('utf8'));
@@ -31,6 +31,12 @@ const parseEventEnvelope = (rawValue) => {
         codigo: issue.code,
       })),
     );
+  }
+
+  if (attributeEventType && attributeEventType !== result.data.event_type) {
+    throw new InvalidDataError('event_type del atributo no coincide con el del sobre', [
+      { campo: 'event_type', codigo: 'MISMATCH' },
+    ]);
   }
 
   return {

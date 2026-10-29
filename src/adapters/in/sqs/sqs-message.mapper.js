@@ -1,5 +1,10 @@
 const { parseEventEnvelope } = require('../shared/event-envelope');
 
+const readSqsAttribute = (message, name) => {
+  const attribute = message?.MessageAttributes?.[name];
+  return attribute?.StringValue ?? attribute?.BinaryValue ?? null;
+};
+
 const mapSqsMessageToEnvelope = (message) => {
   if (!message) {
     throw new Error('Mensaje SQS inválido');
@@ -10,22 +15,23 @@ const mapSqsMessageToEnvelope = (message) => {
     throw new Error('Mensaje SQS sin Body');
   }
 
-  // Si viene de SNS->SQS, el Body puede ser JSON de SNS con Message
   let payloadToParse = body;
+  let attributeEventType = readSqsAttribute(message, 'event_type');
+
   try {
     const parsedBody = typeof body === 'string' ? JSON.parse(body) : body;
     if (parsedBody && parsedBody.Type === 'Notification' && parsedBody.Message) {
       payloadToParse = parsedBody.Message;
+      attributeEventType =
+        attributeEventType ?? parsedBody.MessageAttributes?.event_type?.Value ?? null;
     } else if (parsedBody && typeof parsedBody === 'object' && parsedBody.Message) {
-      // Algunos formatos envuelven Message
       payloadToParse = parsedBody.Message;
     }
   } catch {
-    // Si no es JSON, usar tal cual
+    // Si no es JSON, parseEventEnvelope reportará el error correspondiente.
   }
 
-  const envelope = parseEventEnvelope(payloadToParse);
-  return envelope;
+  return parseEventEnvelope(payloadToParse, { attributeEventType });
 };
 
 module.exports = { mapSqsMessageToEnvelope };

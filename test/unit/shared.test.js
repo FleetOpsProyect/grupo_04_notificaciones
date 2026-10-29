@@ -106,6 +106,7 @@ describe('shared helpers', () => {
 describe('templates', () => {
   test('incidente con y sin datos opcionales', () => {
     const full = buildIncidentReportTemplate({
+      kind: 'SEVERE',
       requiereAsistencia: true,
       vehiculoId: 'VEH-1',
       incidenteId: 'INC-1',
@@ -118,6 +119,7 @@ describe('templates', () => {
     expect(full.message).toContain('Asignación: ASI-1');
     expect(full.message).toContain('REQUIERE ASISTENCIA INMEDIATA');
     const minimal = buildIncidentReportTemplate({
+      kind: 'MINOR',
       requiereAsistencia: false,
       vehiculoId: 'VEH-1',
       incidenteId: 'INC-1',
@@ -129,58 +131,58 @@ describe('templates', () => {
   });
 
   test('asignación interrumpida cubre los resultados', () => {
-    expect(buildAssignmentInterruptedTemplate({ resultado: 'MANUAL_REQUERIDA' }).message).toContain(
-      'gestión manual',
-    );
     expect(
-      buildAssignmentInterruptedTemplate({ resultado: 'AUTOMATICA_FALLIDA' }).message,
+      buildAssignmentInterruptedTemplate({ reassignmentResult: 'MANUAL_REQUIRED' }).message,
+    ).toContain('gestión manual');
+    expect(
+      buildAssignmentInterruptedTemplate({ reassignmentResult: 'AUTOMATIC_FAILED' }).message,
     ).toContain('reasignación automática falló');
     expect(
-      buildAssignmentInterruptedTemplate({ resultado: 'AUTOMATICA_EXITOSA' }).message,
-    ).toContain('fue exitosa');
+      buildAssignmentInterruptedTemplate({ reassignmentResult: 'AUTOMATIC_SUCCESSFUL' }).message,
+    ).toContain('vehículo asignado');
     expect(buildAssignmentInterruptedTemplate({}).message).toContain('pendiente');
   });
 
   test('documentos próximos y vencidos', () => {
     const expiring = buildDocumentExpiringTemplate({
-      diasRestantes: 15,
-      documentoId: 'DOC-1',
-      entidadTipo: 'VEHICLE',
+      daysRemaining: 15,
+      documentId: 'DOC-1',
+      documentType: 'SOAT',
+      ownerType: 'VEHICLE',
+      thresholdDays: 30,
     });
     expect(expiring.subject).toContain('15 días');
     expect(expiring.message).toContain('DOC-1');
     expect(expiring.message).toContain('VEHICLE');
-    expect(buildDocumentExpiringTemplate({ diasRestantes: 5 }).message).not.toContain(
-      'Entidad asociada',
-    );
     const expired = buildDocumentExpiredTemplate({
-      documentoId: 'DOC-1',
-      entidadTipo: 'VEHICLE',
+      documentId: 'DOC-1',
+      documentType: 'SOAT',
+      ownerType: 'VEHICLE',
     });
     expect(expired.message).toContain('DOC-1');
     expect(expired.message).toContain('VEHICLE');
-    expect(buildDocumentExpiredTemplate({}).message).not.toContain('Entidad asociada');
+    expect(buildDocumentExpiredTemplate({}).message).not.toContain('Tipo de propietario');
   });
 
   test('mantenimiento formatea kilómetros y omite datos', () => {
     expect(formatKilometers(12345.6)).toBe('12.346');
     expect(formatKilometers(Number.NaN)).toBeNull();
     const full = buildMaintenanceRequiredTemplate({
-      kilometros: 12345,
+      kilometrajeActual: 12345,
       vehiculoId: 'VEH-1',
       mantenimientoId: 'MAN-1',
     });
     expect(full.subject).toContain('VEH-1');
-    expect(full.message).toContain('12.345 km');
+    expect(full.message).toContain('Kilometraje actual: 12.345 km');
     const minimal = buildMaintenanceRequiredTemplate({});
     expect(minimal.subject).not.toContain(' para ');
-    expect(minimal.message).not.toContain('Kilometraje');
+    expect(minimal.message).not.toContain('Kilometraje actual');
   });
 
   test('notificación manual con referencia opcional', () => {
     const template = buildManualNotificationTemplate({
       type: Type.GENERAL,
-      severity: Severity.INFORMATIONAL,
+      severity: Severity.INFO,
       message: '  Hola  ',
       referenceId: 'REF-1',
       createdAt: NOW,

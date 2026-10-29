@@ -88,7 +88,7 @@ const createSqsEventConsumer = ({
           if (!running) {
             break;
           }
-          const context = { queue_url: queueUrl };
+          const context = { queue_url: queueUrl, message_id: message.MessageId ?? null };
           let envelope;
           try {
             envelope = mapSqsMessageToEnvelope(message);
@@ -104,8 +104,8 @@ const createSqsEventConsumer = ({
           }
 
           context.correlation_id = envelope.correlation_id;
-          context.event_id = envelope.evento_id;
-          context.event_type = envelope.tipo_evento;
+          context.event_id = envelope.event_id;
+          context.event_type = envelope.event_type;
 
           await runWithContext({ correlation_id: envelope.correlation_id }, async () => {
             const retryDelays = sqsConfig.consumerRetryDelaysMs || [2000, 10000, 30000];

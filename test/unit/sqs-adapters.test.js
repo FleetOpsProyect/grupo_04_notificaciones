@@ -6,13 +6,13 @@ const {
 const { InvalidDataError } = require('../../src/domain/errors');
 
 const buildEnvelope = (overrides = {}) => ({
-  evento_id: randomUUID(),
-  tipo_evento: 'IncidenteReportadoEvent',
+  event_id: randomUUID(),
+  event_type: 'severe_incident_reported_event',
   version: 1,
-  fecha_evento: '2026-10-28T10:00:00-05:00',
-  origen: 'incidentes',
+  occurred_at: '2026-10-28T10:00:00-05:00',
+  source: 'incidentes',
   correlation_id: randomUUID(),
-  datos: { incidente_id: 'inc-1' },
+  data: { incidente_id: 'inc-1' },
   ...overrides,
 });
 
@@ -21,9 +21,9 @@ describe('Adaptador de entrada SQS', () => {
     const envelope = buildEnvelope();
     const mapped = mapSqsMessageToEnvelope({ Body: JSON.stringify(envelope) });
 
-    expect(mapped.evento_id).toBe(envelope.evento_id);
-    expect(mapped.tipo_evento).toBe(envelope.tipo_evento);
-    expect(mapped.datos).toEqual(envelope.datos);
+    expect(mapped.event_id).toBe(envelope.event_id);
+    expect(mapped.event_type).toBe(envelope.event_type);
+    expect(mapped.data).toEqual(envelope.data);
   });
 
   test('desenvuelve el Body de una notificación SNS', () => {
@@ -36,7 +36,7 @@ describe('Adaptador de entrada SQS', () => {
 
     const mapped = mapSqsMessageToEnvelope({ Body: snsBody });
 
-    expect(mapped.evento_id).toBe(envelope.evento_id);
+    expect(mapped.event_id).toBe(envelope.event_id);
   });
 
   test('genera correlation_id cuando el sobre no lo trae', () => {
@@ -54,7 +54,7 @@ describe('Adaptador de entrada SQS', () => {
   });
 
   test('rechaza un sobre sin evento_id UUID', () => {
-    const envelope = buildEnvelope({ evento_id: 'no-es-uuid' });
+    const envelope = buildEnvelope({ event_id: 'no-es-uuid' });
 
     expect(() => mapSqsMessageToEnvelope({ Body: JSON.stringify(envelope) })).toThrow(
       InvalidDataError,
@@ -63,6 +63,26 @@ describe('Adaptador de entrada SQS', () => {
 
   test('rechaza un mensaje SQS sin Body', () => {
     expect(() => mapSqsMessageToEnvelope({})).toThrow('Mensaje SQS sin Body');
+  });
+
+  test('valida el message attribute event_type', () => {
+    const envelope = buildEnvelope();
+    expect(() =>
+      mapSqsMessageToEnvelope({
+        Body: JSON.stringify(envelope),
+        MessageAttributes: {
+          event_type: { DataType: 'String', StringValue: 'minor_incident_reported_event' },
+        },
+      }),
+    ).toThrow('no coincide');
+
+    const mapped = mapSqsMessageToEnvelope({
+      Body: JSON.stringify(envelope),
+      MessageAttributes: {
+        event_type: { DataType: 'String', StringValue: envelope.event_type },
+      },
+    });
+    expect(mapped.event_id).toBe(envelope.event_id);
   });
 });
 

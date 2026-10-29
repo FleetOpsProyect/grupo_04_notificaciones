@@ -1,17 +1,17 @@
 openapi: 3.0.3
 info:
   title: FleetOps Notification Service API
-  version: 1.0.0
+  version: 1.1.0
   description: API del microservicio de Notificaciones de FleetOps (Grupo 04).
 servers:
   - url: http://localhost:3000
 tags:
-  - name: Notificaciones
-  - name: Operación
+  - name: Notifications
+  - name: Operations
 paths:
-  /api/v1/notificaciones:
+  /notifications:
     post:
-      tags: [Notificaciones]
+      tags: [Notifications]
       summary: Crear una notificación manual
       operationId: createManualNotification
       requestBody:
@@ -40,7 +40,7 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
     get:
-      tags: [Notificaciones]
+      tags: [Notifications]
       summary: Listar notificaciones
       operationId: listNotifications
       parameters:
@@ -58,17 +58,17 @@ paths:
           in: query
           schema:
             type: string
-            enum: [INFORMATIONAL, WARNING, CRITICAL]
-        - name: dispatch_status
+            enum: [INFO, WARNING, CRITICAL]
+        - name: delivery_status
           in: query
           schema:
             type: string
-            enum: [PENDING_DISPATCH, SENT, FAILED]
-        - name: attention_status
+            enum: [PENDING, SENT, FAILED]
+        - name: acknowledgement_status
           in: query
           schema:
             type: string
-            enum: [PENDING, ATTENDED]
+            enum: [PENDING, ACKNOWLEDGED]
         - name: reference_id
           in: query
           schema:
@@ -109,10 +109,10 @@ paths:
           $ref: '#/components/responses/InvalidParameters'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
-  /api/v1/notificaciones/estado:
+  /notifications/status:
     get:
-      tags: [Notificaciones]
-      summary: Consultar el estado agregado de notificaciones
+      tags: [Notifications]
+      summary: Consultar el estado agregado de las notificaciones
       operationId: getNotificationStatus
       responses:
         '200':
@@ -123,9 +123,9 @@ paths:
                 $ref: '#/components/schemas/NotificationStatusResponse'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
-  /api/v1/notificaciones/{id}:
+  /notifications/{id}:
     get:
-      tags: [Notificaciones]
+      tags: [Notifications]
       summary: Consultar una notificación
       operationId: getNotification
       parameters:
@@ -143,20 +143,20 @@ paths:
           $ref: '#/components/responses/NotFound'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
-  /api/v1/notificaciones/{id}/atender:
+  /notifications/{id}/acknowledgement:
     put:
-      tags: [Notificaciones]
-      summary: Marcar como atendida una notificación y su alerta
-      operationId: markAlertAttended
+      tags: [Notifications]
+      summary: Reconocer una alerta y todas sus notificaciones
+      operationId: acknowledgeAlert
       parameters:
         - $ref: '#/components/parameters/NotificationId'
       responses:
         '200':
-          description: Atención idempotente completada
+          description: Reconocimiento idempotente completado
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AttendedNotificationResponse'
+                $ref: '#/components/schemas/AcknowledgedNotificationResponse'
         '400':
           $ref: '#/components/responses/InvalidParameters'
         '404':
@@ -165,7 +165,7 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /health:
     get:
-      tags: [Operación]
+      tags: [Operations]
       summary: Liveness
       operationId: health
       responses:
@@ -181,7 +181,7 @@ paths:
                     example: UP
   /ready:
     get:
-      tags: [Operación]
+      tags: [Operations]
       summary: Readiness
       operationId: readiness
       responses:
@@ -199,7 +199,7 @@ paths:
                 $ref: '#/components/schemas/ReadinessResponse'
   /metrics:
     get:
-      tags: [Operación]
+      tags: [Operations]
       summary: Métricas Prometheus
       operationId: metrics
       responses:
@@ -228,7 +228,7 @@ components:
           enum: [INCIDENT, ASSIGNMENT, DOCUMENT, MAINTENANCE, FUEL, GENERAL]
         severity:
           type: string
-          enum: [INFORMATIONAL, WARNING, CRITICAL]
+          enum: [INFO, WARNING, CRITICAL]
         recipient_role:
           type: string
           enum: [FLEET_ADMINISTRATOR, MAINTENANCE_TECHNICIAN, MANAGEMENT]
@@ -243,7 +243,7 @@ components:
           pattern: '^\S+$'
     CreateManualNotificationResponse:
       type: object
-      required: [notification_id, alert_id, dispatch_status, created_at]
+      required: [notification_id, alert_id, delivery_status, created_at]
       properties:
         notification_id:
           type: string
@@ -251,9 +251,9 @@ components:
         alert_id:
           type: string
           format: uuid
-        dispatch_status:
+        delivery_status:
           type: string
-          enum: [PENDING_DISPATCH, SENT, FAILED]
+          enum: [PENDING, SENT, FAILED]
         created_at:
           type: string
           format: date-time
@@ -271,7 +271,7 @@ components:
           enum: [INCIDENT, ASSIGNMENT, DOCUMENT, MAINTENANCE, FUEL, GENERAL]
         severity:
           type: string
-          enum: [INFORMATIONAL, WARNING, CRITICAL]
+          enum: [INFO, WARNING, CRITICAL]
         recipient_role:
           type: string
           enum: [FLEET_ADMINISTRATOR, MAINTENANCE_TECHNICIAN, MANAGEMENT, EMPLOYEE]
@@ -297,17 +297,17 @@ components:
           nullable: true
         correlation_id:
           type: string
-        attention_status:
+        acknowledgement_status:
           type: string
-          enum: [PENDING, ATTENDED]
-        attended_at:
+          enum: [PENDING, ACKNOWLEDGED]
+        acknowledged_at:
           type: string
           format: date-time
           nullable: true
-        dispatch_status:
+        delivery_status:
           type: string
-          enum: [PENDING_DISPATCH, SENT, FAILED]
-        dispatch_attempts:
+          enum: [PENDING, SENT, FAILED]
+        delivery_attempts:
           type: integer
           minimum: 0
         next_attempt_at:
@@ -333,9 +333,9 @@ components:
           nullable: true
     ListNotificationsResponse:
       type: object
-      required: [contenido, page, size, total, resumen]
+      required: [content, page, size, total, summary]
       properties:
-        contenido:
+        content:
           type: array
           items:
             $ref: '#/components/schemas/NotificationView'
@@ -347,21 +347,25 @@ components:
         total:
           type: integer
           minimum: 0
-        resumen:
+        summary:
           type: object
           properties:
             by_severity:
               type: object
               additionalProperties:
                 type: integer
-            by_dispatch_status:
+            by_delivery_status:
+              type: object
+              additionalProperties:
+                type: integer
+            by_acknowledgement_status:
               type: object
               additionalProperties:
                 type: integer
     NotificationStatusResponse:
       type: object
       properties:
-        alertas_criticas_pendientes:
+        critical_alerts_pending:
           type: integer
         total_notifications:
           type: integer
@@ -369,7 +373,7 @@ components:
           type: object
           additionalProperties:
             type: integer
-        dispatch:
+        deliveries:
           type: object
           properties:
             pending:
@@ -381,9 +385,9 @@ components:
         generated_at:
           type: string
           format: date-time
-    AttendedNotificationResponse:
+    AcknowledgedNotificationResponse:
       type: object
-      required: [notification_id, alert_id, attention_status, attended_at]
+      required: [notification_id, alert_id, acknowledgement_status, acknowledged_at]
       properties:
         notification_id:
           type: string
@@ -391,10 +395,10 @@ components:
         alert_id:
           type: string
           format: uuid
-        attention_status:
+        acknowledgement_status:
           type: string
-          enum: [PENDING, ATTENDED]
-        attended_at:
+          enum: [PENDING, ACKNOWLEDGED]
+        acknowledged_at:
           type: string
           format: date-time
     ReadinessResponse:

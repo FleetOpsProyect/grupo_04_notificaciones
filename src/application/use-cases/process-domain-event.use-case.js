@@ -1,8 +1,10 @@
 const { randomUUID } = require('node:crypto');
 const { Alert } = require('../../domain/entities/alert');
 const { Notification } = require('../../domain/entities/notification');
-const { AttentionStatus, DispatchStatus, Origin } = require('../../domain/enums');
+const { AcknowledgementStatus, DeliveryStatus, Origin } = require('../../domain/enums');
 const { safeNotificationLogFields } = require('../shared/safe-log-fields');
+
+const PROCESSED_EVENT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 const createProcessDomainEventUseCase = ({
   unitOfWork,
@@ -13,26 +15,26 @@ const createProcessDomainEventUseCase = ({
   idGenerator = randomUUID,
 }) => {
   return async function processDomainEvent(envelope, context = {}) {
-    const handler = registry.resolve(envelope.tipo_evento);
+    const handler = registry.resolve(envelope.event_type);
     if (!handler) {
-      metrics?.eventsProcessed?.inc({ event_type: envelope.tipo_evento, result: 'IGNORED' });
+      metrics?.eventsProcessed?.inc({ event_type: envelope.event_type, result: 'IGNORED' });
       return { status: 'ignored', reason: 'unsupported_event_type' };
     }
 
     const plan = handler.buildPlan(envelope, context);
     if (plan === null) {
       logger?.info(
-        { event_id: envelope.evento_id, event_type: envelope.tipo_evento },
-        'Evento registrado como contrato pendiente; no se persiste',
+        { event_id: envelope.event_id, event_type: envelope.event_type },
+        'Evento sin aviso definido; no se persiste',
       );
-      metrics?.eventsProcessed?.inc({ event_type: envelope.tipo_evento, result: 'IGNORED' });
-      return { status: 'ignored', reason: 'pending_contract' };
+      metrics?.eventsProcessed?.inc({ event_type: envelope.event_type, result: 'IGNORED' });
+      return { status: 'ignored', reason: 'no_notification_defined' };
     }
 
     const result = await unitOfWork.run(async (transaction) => {
-      const alreadyProcessed = await transaction.processedEvents.exists(envelope.evento_id);
+      const alreadyProcessed = await transaction.processedEvents.exists(envelope.event_id);
       if (alreadyProcessed) {
-        return { status: 'duplicate', event_id: envelope.evento_id };
+        return { status: 'duplicate', event_id: envelope.event_id };
       }
 
       const now = clock.now();
@@ -40,13 +42,13 @@ const createProcessDomainEventUseCase = ({
       const alert = new Alert({
         alert_id: alertId,
         origin: Origin.EVENT,
-        source_event_type: envelope.tipo_evento,
-        event_id: envelope.evento_id,
+        source_event_type: envelope.event_type,
+        event_id: envelope.event_id,
         type: plan.alert.type,
         severity: plan.alert.severity,
         reference_id: plan.alert.reference_id ?? null,
-        attention_status: AttentionStatus.PENDING,
-        attended_at: null,
+        acknowledgement_status: AcknowledgementStatus.PENDING,
+        acknowledged_at: null,
         correlation_id: envelope.correlation_id,
         created_at: now,
       });
@@ -64,13 +66,13 @@ const createProcessDomainEventUseCase = ({
           message: item.message,
           reference_id: item.reference_id ?? plan.alert.reference_id ?? null,
           origin: Origin.EVENT,
-          source_event_type: envelope.tipo_evento,
-          event_id: envelope.evento_id,
+          source_event_type: envelope.event_type,
+          event_id: envelope.event_id,
           correlation_id: envelope.correlation_id,
-          attention_status: AttentionStatus.PENDING,
-          attended_at: null,
-          dispatch_status: DispatchStatus.PENDING_DISPATCH,
-          dispatch_attempts: 0,
+          acknowledgement_status: AcknowledgementStatus.PENDING,
+          acknowledged_at: null,
+          delivery_status: DeliveryStatus.PENDING,
+          delivery_attempts: 0,
           next_attempt_at: now,
           locked_until: null,
           failure_reason: null,
@@ -83,30 +85,30 @@ const createProcessDomainEventUseCase = ({
       });
       await transaction.notifications.createMany(notifications);
       await transaction.processedEvents.create({
-        evento_id: envelope.evento_id,
-        event_type: envelope.tipo_evento,
-        source: envelope.origen,
-        topic: context.topic ?? null,
-        partition: context.partition ?? null,
-        offset: context.offset ?? null,
-        occurred_at: new Date(envelope.fecha_evento),
+        event_id: envelope.event_id,
+        event_type: envelope.event_type,
+        source: envelope.source,
+        message_id: context.message_id ?? null,
+        queue_url: context.queue_url ?? null,
+        occurred_at: new Date(envelope.occurred_at),
         processed_at: now,
+        expires_at: new Date(now.getTime() + PROCESSED_EVENT_TTL_MS),
       });
 
       return {
         status: 'processed',
-        event_id: envelope.evento_id,
+        event_id: envelope.event_id,
         alert_id: alertId,
         notification_ids: notifications.map((item) => item.notification_id),
       };
     });
 
     metrics?.eventsProcessed?.inc({
-      event_type: envelope.tipo_evento,
+      event_type: envelope.event_type,
       result: result.status === 'duplicate' ? 'DUPLICATE' : 'OK',
     });
     return result;
   };
 };
 
-module.exports = { createProcessDomainEventUseCase };
+module.exports = { createProcessDomainEventUseCase, PROCESSED_EVENT_TTL_MS };

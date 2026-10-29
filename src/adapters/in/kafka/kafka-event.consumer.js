@@ -79,8 +79,8 @@ const createKafkaEventConsumer = ({
           }
 
           context.correlation_id = envelope.correlation_id;
-          context.event_id = envelope.evento_id;
-          context.event_type = envelope.tipo_evento;
+          context.event_id = envelope.event_id;
+          context.event_type = envelope.event_type;
 
           await runWithContext({ correlation_id: envelope.correlation_id }, async () => {
             for (let attempt = 0; ; attempt += 1) {

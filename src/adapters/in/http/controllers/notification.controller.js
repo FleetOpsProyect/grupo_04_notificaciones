@@ -11,7 +11,7 @@ const createNotificationController = ({
   getNotificationStatus,
   listNotifications,
   getNotification,
-  markAlertAttended,
+  acknowledgeAlert,
 }) => ({
   async create(req, res, next) {
     try {
@@ -20,7 +20,7 @@ const createNotificationController = ({
         ...input,
         correlation_id: req.correlation_id,
       });
-      res.status(201).location(`/api/v1/notificaciones/${result.notification_id}`).json(result);
+      res.status(201).location(`/notifications/${result.notification_id}`).json(result);
     } catch (error) {
       next(error);
     }
@@ -52,10 +52,10 @@ const createNotificationController = ({
     }
   },
 
-  async attend(req, res, next) {
+  async acknowledge(req, res, next) {
     try {
       const { id } = parseParameters(notificationIdSchema, req.params);
-      res.status(200).json(await markAlertAttended(id));
+      res.status(200).json(await acknowledgeAlert(id));
     } catch (error) {
       next(error);
     }

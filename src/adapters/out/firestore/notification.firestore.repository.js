@@ -1,13 +1,16 @@
 const { Timestamp } = require('firebase-admin/firestore');
 const { DomainError, ServiceUnavailableError } = require('../../../domain/errors');
 const {
+  ACKNOWLEDGEMENT_STATUS_VALUES,
+  DELIVERY_STATUS_VALUES,
+  SEVERITY_VALUES,
+} = require('../../../domain/enums');
+const {
   notificationToDocument,
   documentToNotification,
   toTimestamp,
 } = require('./mappers/notification.mapper');
 
-const SEVERITIES = ['CRITICAL', 'WARNING', 'INFORMATIONAL'];
-const DISPATCH_STATUSES = ['PENDING_DISPATCH', 'SENT', 'FAILED'];
 const MAX_FALLBACK_DOCUMENTS = 10000;
 
 const guard = async (operation) => {
@@ -29,11 +32,11 @@ const applyFilters = (query, filters) => {
   if (filters.type) {
     filtered = filtered.where('type', '==', filters.type);
   }
-  if (filters.dispatch_status) {
-    filtered = filtered.where('dispatch_status', '==', filters.dispatch_status);
+  if (filters.delivery_status) {
+    filtered = filtered.where('delivery_status', '==', filters.delivery_status);
   }
-  if (filters.attention_status) {
-    filtered = filtered.where('attention_status', '==', filters.attention_status);
+  if (filters.acknowledgement_status) {
+    filtered = filtered.where('acknowledgement_status', '==', filters.acknowledgement_status);
   }
   if (filters.reference_id) {
     filtered = filtered.where('reference_id', '==', filters.reference_id);
@@ -60,10 +63,13 @@ const matchesInMemory = (notification, filters) => {
   if (filters.type && notification.type !== filters.type) {
     return false;
   }
-  if (filters.dispatch_status && notification.dispatch_status !== filters.dispatch_status) {
+  if (filters.delivery_status && notification.delivery_status !== filters.delivery_status) {
     return false;
   }
-  if (filters.attention_status && notification.attention_status !== filters.attention_status) {
+  if (
+    filters.acknowledgement_status &&
+    notification.acknowledgement_status !== filters.acknowledgement_status
+  ) {
     return false;
   }
   if (filters.reference_id && notification.reference_id !== filters.reference_id) {
@@ -85,8 +91,11 @@ const matchesInMemory = (notification, filters) => {
 };
 
 const emptySummary = () => ({
-  by_severity: { CRITICAL: 0, WARNING: 0, INFORMATIONAL: 0 },
-  by_dispatch_status: { PENDING_DISPATCH: 0, SENT: 0, FAILED: 0 },
+  by_severity: Object.fromEntries(SEVERITY_VALUES.map((value) => [value, 0])),
+  by_delivery_status: Object.fromEntries(DELIVERY_STATUS_VALUES.map((value) => [value, 0])),
+  by_acknowledgement_status: Object.fromEntries(
+    ACKNOWLEDGEMENT_STATUS_VALUES.map((value) => [value, 0]),
+  ),
 });
 
 const createNotificationFirestoreRepository = (db, transaction = null) => {
@@ -125,7 +134,7 @@ const createNotificationFirestoreRepository = (db, transaction = null) => {
     async findDuePending(now, limit) {
       return guard(async () => {
         const snapshot = await collection
-          .where('dispatch_status', '==', 'PENDING_DISPATCH')
+          .where('delivery_status', '==', 'PENDING')
           .where('next_attempt_at', '<=', Timestamp.fromDate(now))
           .orderBy('next_attempt_at', 'asc')
           .limit(limit)
@@ -160,8 +169,8 @@ const createNotificationFirestoreRepository = (db, transaction = null) => {
     async markSent(notification) {
       await guard(() =>
         update(collection.doc(notification.notification_id), {
-          dispatch_status: notification.dispatch_status,
-          dispatch_attempts: notification.dispatch_attempts,
+          delivery_status: notification.delivery_status,
+          delivery_attempts: notification.delivery_attempts,
           sent_at: toTimestamp(notification.sent_at),
           next_attempt_at: null,
           locked_until: null,
@@ -174,8 +183,8 @@ const createNotificationFirestoreRepository = (db, transaction = null) => {
     async markFailed(notification) {
       await guard(() =>
         update(collection.doc(notification.notification_id), {
-          dispatch_status: notification.dispatch_status,
-          dispatch_attempts: notification.dispatch_attempts,
+          delivery_status: notification.delivery_status,
+          delivery_attempts: notification.delivery_attempts,
           next_attempt_at: null,
           locked_until: null,
           failure_reason: notification.failure_reason,
@@ -186,8 +195,8 @@ const createNotificationFirestoreRepository = (db, transaction = null) => {
     async scheduleRetry(notification) {
       await guard(() =>
         update(collection.doc(notification.notification_id), {
-          dispatch_status: notification.dispatch_status,
-          dispatch_attempts: notification.dispatch_attempts,
+          delivery_status: notification.delivery_status,
+          delivery_attempts: notification.delivery_attempts,
           next_attempt_at: toTimestamp(notification.next_attempt_at),
           locked_until: null,
           failure_reason: notification.failure_reason,
@@ -199,18 +208,20 @@ const createNotificationFirestoreRepository = (db, transaction = null) => {
       await guard(() => update(collection.doc(notificationId), { locked_until: null }));
     },
 
-    async markAttendedByAlertId(alertId, at) {
+    async acknowledgeByAlertId(alertId, at) {
       if (transaction) {
         const snapshot = await transaction.get(
-          collection.where('alert_id', '==', alertId).where('attention_status', '==', 'PENDING'),
+          collection
+            .where('alert_id', '==', alertId)
+            .where('acknowledgement_status', '==', 'PENDING'),
         );
         for (const document of snapshot.docs) {
           const notification = documentToNotification(document.id, document.data());
-          const updated = notification.markAttended(at);
+          const updated = notification.acknowledge(at);
           if (updated !== notification) {
             transaction.update(document.ref, {
-              attention_status: updated.attention_status,
-              attended_at: toTimestamp(updated.attended_at),
+              acknowledgement_status: updated.acknowledgement_status,
+              acknowledged_at: toTimestamp(updated.acknowledged_at),
             });
           }
         }
@@ -223,7 +234,7 @@ const createNotificationFirestoreRepository = (db, transaction = null) => {
             db,
             firestoreTransaction,
           );
-          await transactionRepository.markAttendedByAlertId(alertId, at);
+          await transactionRepository.acknowledgeByAlertId(alertId, at);
         }),
       );
     },
@@ -240,16 +251,23 @@ const createNotificationFirestoreRepository = (db, transaction = null) => {
             .limit(size)
             .get();
           const summary = emptySummary();
-          for (const severity of SEVERITIES) {
+          for (const severity of SEVERITY_VALUES) {
             const snapshot = await base.where('severity', '==', severity).count().get();
             summary.by_severity[severity] = snapshot.data().count;
           }
-          for (const dispatchStatus of DISPATCH_STATUSES) {
+          for (const deliveryStatus of DELIVERY_STATUS_VALUES) {
             const snapshot = await base
-              .where('dispatch_status', '==', dispatchStatus)
+              .where('delivery_status', '==', deliveryStatus)
               .count()
               .get();
-            summary.by_dispatch_status[dispatchStatus] = snapshot.data().count;
+            summary.by_delivery_status[deliveryStatus] = snapshot.data().count;
+          }
+          for (const acknowledgementStatus of ACKNOWLEDGEMENT_STATUS_VALUES) {
+            const snapshot = await base
+              .where('acknowledgement_status', '==', acknowledgementStatus)
+              .count()
+              .get();
+            summary.by_acknowledgement_status[acknowledgementStatus] = snapshot.data().count;
           }
           return {
             items: pageSnapshot.docs.map((document) =>
@@ -271,7 +289,8 @@ const createNotificationFirestoreRepository = (db, transaction = null) => {
           const summary = emptySummary();
           for (const notification of all) {
             summary.by_severity[notification.severity] += 1;
-            summary.by_dispatch_status[notification.dispatch_status] += 1;
+            summary.by_delivery_status[notification.delivery_status] += 1;
+            summary.by_acknowledgement_status[notification.acknowledgement_status] += 1;
           }
           return {
             items: all.slice(offset, offset + size),
@@ -292,7 +311,7 @@ const createNotificationFirestoreRepository = (db, transaction = null) => {
     async countBySeverity() {
       return guard(async () => {
         const result = {};
-        for (const severity of SEVERITIES) {
+        for (const severity of SEVERITY_VALUES) {
           const snapshot = await collection.where('severity', '==', severity).count().get();
           result[severity] = snapshot.data().count;
         }
@@ -300,15 +319,15 @@ const createNotificationFirestoreRepository = (db, transaction = null) => {
       });
     },
 
-    async countByDispatchStatus() {
+    async countByDeliveryStatus() {
       return guard(async () => {
         const result = {};
-        for (const dispatchStatus of DISPATCH_STATUSES) {
+        for (const deliveryStatus of DELIVERY_STATUS_VALUES) {
           const snapshot = await collection
-            .where('dispatch_status', '==', dispatchStatus)
+            .where('delivery_status', '==', deliveryStatus)
             .count()
             .get();
-          result[dispatchStatus] = snapshot.data().count;
+          result[deliveryStatus] = snapshot.data().count;
         }
         return result;
       });

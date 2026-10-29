@@ -1,7 +1,7 @@
 const { Notification } = require('../../src/domain/entities/notification');
 const {
-  AttentionStatus,
-  DispatchStatus,
+  AcknowledgementStatus,
+  DeliveryStatus,
   Origin,
   RecipientRole,
   Severity,
@@ -12,7 +12,7 @@ const { createTestContext, eventEnvelope, FIXED_NOW } = require('../helpers/test
 
 const manualInput = (overrides = {}) => ({
   type: Type.GENERAL,
-  severity: Severity.INFORMATIONAL,
+  severity: Severity.INFO,
   recipient_role: RecipientRole.MANAGEMENT,
   message: 'Mensaje manual',
   correlation_id: 'corr-manual',
@@ -23,9 +23,8 @@ describe('ProcessDomainEvent', () => {
   test('procesa un evento y persiste alerta, notificaciones e idempotencia', async () => {
     const context = createTestContext();
     const result = await context.useCases.processDomainEvent(eventEnvelope(), {
-      topic: 'topic',
-      partition: 0,
-      offset: '10',
+      queue_url: 'http://localhost/queue',
+      message_id: 'msg-1',
     });
     expect(result.status).toBe('processed');
     expect(result.notification_ids).toHaveLength(2);
@@ -42,27 +41,27 @@ describe('ProcessDomainEvent', () => {
     expect(first.status).toBe('processed');
     expect(second).toEqual({
       status: 'duplicate',
-      event_id: eventEnvelope().evento_id,
+      event_id: eventEnvelope().event_id,
     });
     expect(context.state.notifications.size).toBe(2);
   });
 
-  test('ignora eventos con contrato pendiente y tipos desconocidos', async () => {
+  test('ignora eventos sin aviso y tipos desconocidos', async () => {
     const context = createTestContext();
-    const pendingResult = await context.useCases.processDomainEvent(
-      eventEnvelope({ tipo_evento: 'IncidenteLeveRegistradoEvent' }),
+    const ignoredResult = await context.useCases.processDomainEvent(
+      eventEnvelope({ event_type: 'assignment_created_event' }),
     );
     const unknownResult = await context.useCases.processDomainEvent(
-      eventEnvelope({ tipo_evento: 'EventoNoRegistrado' }),
+      eventEnvelope({ event_type: 'EventoNoRegistrado' }),
     );
-    expect(pendingResult).toEqual({ status: 'ignored', reason: 'pending_contract' });
+    expect(ignoredResult).toEqual({ status: 'ignored', reason: 'unsupported_event_type' });
     expect(unknownResult).toEqual({ status: 'ignored', reason: 'unsupported_event_type' });
     expect(context.state.notifications.size).toBe(0);
   });
 
   test('revierte la transacción si los datos del evento son inválidos', async () => {
     const context = createTestContext();
-    const envelope = eventEnvelope({ datos: { vehiculo_id: 'VEH-1' } });
+    const envelope = eventEnvelope({ data: { vehiculo_id: 'VEH-1' } });
     await expect(context.useCases.processDomainEvent(envelope)).rejects.toBeInstanceOf(
       InvalidDataError,
     );
@@ -75,13 +74,13 @@ describe('CreateManualNotification', () => {
   test('crea alerta y notificación manual pendiente', async () => {
     const context = createTestContext();
     const result = await context.useCases.createManualNotification(manualInput());
-    expect(result.dispatch_status).toBe(DispatchStatus.PENDING_DISPATCH);
+    expect(result.delivery_status).toBe(DeliveryStatus.PENDING);
     expect(context.state.alerts.size).toBe(1);
     expect(context.state.notifications.size).toBe(1);
     const notification = [...context.state.notifications.values()][0];
     expect(notification.origin).toBe(Origin.MANUAL);
     expect(notification.recipient_email).toBeNull();
-    expect(notification.attention_status).toBe(AttentionStatus.PENDING);
+    expect(notification.acknowledgement_status).toBe(AcknowledgementStatus.PENDING);
   });
 
   test('rechaza el rol EMPLOYEE', async () => {
@@ -108,10 +107,10 @@ describe('consultas', () => {
     await context.useCases.processDomainEvent(eventEnvelope());
     await context.useCases.createManualNotification(manualInput());
     const status = await context.useCases.getNotificationStatus();
-    expect(status.alertas_criticas_pendientes).toBe(1);
+    expect(status.critical_alerts_pending).toBe(1);
     expect(status.total_notifications).toBe(3);
     expect(status.by_severity.CRITICAL).toBe(2);
-    expect(status.dispatch).toEqual({ pending: 3, sent: 0, failed: 0 });
+    expect(status.deliveries).toEqual({ pending: 3, sent: 0, failed: 0 });
     expect(status.generated_at).toBe('2026-10-22T10:00:00-05:00');
   });
 
@@ -126,22 +125,22 @@ describe('consultas', () => {
       type: undefined,
     });
     expect(all.total).toBe(3);
-    expect(all.contenido).toHaveLength(2);
-    expect(all.resumen.by_severity.CRITICAL).toBe(2);
-    expect(all.resumen.by_dispatch_status.PENDING_DISPATCH).toBe(3);
+    expect(all.content).toHaveLength(2);
+    expect(all.summary.by_severity.CRITICAL).toBe(2);
+    expect(all.summary.by_delivery_status.PENDING).toBe(3);
     const filtered = await context.useCases.listNotifications({
       page: 0,
       size: 20,
-      severity: Severity.INFORMATIONAL,
+      severity: Severity.INFO,
       type: Type.GENERAL,
     });
     expect(filtered.total).toBe(1);
-    expect(filtered.contenido[0].severity).toBe(Severity.INFORMATIONAL);
+    expect(filtered.content[0].severity).toBe(Severity.INFO);
     const secondPage = await context.useCases.listNotifications({
       page: 1,
       size: 2,
     });
-    expect(secondPage.contenido).toHaveLength(1);
+    expect(secondPage.content).toHaveLength(1);
   });
 
   test('rechaza fechas de filtro inválidas', async () => {
@@ -155,8 +154,12 @@ describe('consultas', () => {
     const context = createTestContext();
     const processed = await context.useCases.processDomainEvent(
       eventEnvelope({
-        tipo_evento: 'AsignacionInterrumpidaEvent',
-        datos: { empleado_email: 'empleado@example.com', resultado: 'MANUAL_REQUERIDA' },
+        event_type: 'interrupted_assignment_event',
+        data: {
+          assignment_id: 'ASG-1',
+          employee_email: 'empleado@example.com',
+          reassignment_result: 'MANUAL_REQUIRED',
+        },
       }),
     );
     const result = await context.useCases.getNotification(processed.notification_ids[0]);
@@ -172,30 +175,30 @@ describe('consultas', () => {
   });
 });
 
-describe('MarkAlertAttended', () => {
-  test('atiende la alerta y todas sus notificaciones de forma idempotente', async () => {
+describe('AcknowledgeAlert', () => {
+  test('reconoce la alerta y todas sus notificaciones de forma idempotente', async () => {
     const context = createTestContext();
     const processed = await context.useCases.processDomainEvent(eventEnvelope());
-    const first = await context.useCases.markAlertAttended(processed.notification_ids[0]);
-    expect(first.attention_status).toBe(AttentionStatus.ATTENDED);
+    const first = await context.useCases.acknowledgeAlert(processed.notification_ids[0]);
+    expect(first.acknowledgement_status).toBe(AcknowledgementStatus.ACKNOWLEDGED);
     for (const notification of context.state.notifications.values()) {
-      expect(notification.attention_status).toBe(AttentionStatus.ATTENDED);
+      expect(notification.acknowledgement_status).toBe(AcknowledgementStatus.ACKNOWLEDGED);
     }
-    const second = await context.useCases.markAlertAttended(processed.notification_ids[1]);
-    expect(second.attended_at).toBe(first.attended_at);
+    const second = await context.useCases.acknowledgeAlert(processed.notification_ids[1]);
+    expect(second.acknowledged_at).toBe(first.acknowledged_at);
   });
 
   test('falla si la notificación o su alerta no existen', async () => {
     const context = createTestContext();
     await expect(
-      context.useCases.markAlertAttended('00000000-0000-4000-8000-000000000099'),
+      context.useCases.acknowledgeAlert('00000000-0000-4000-8000-000000000099'),
     ).rejects.toBeInstanceOf(NotificationNotFoundError);
 
     const orphan = new Notification({
       notification_id: '00000000-0000-4000-8000-000000000098',
       alert_id: 'missing-alert',
       type: Type.GENERAL,
-      severity: Severity.INFORMATIONAL,
+      severity: Severity.INFO,
       recipient_role: RecipientRole.MANAGEMENT,
       subject: 'Asunto',
       message: 'Mensaje',
@@ -205,7 +208,7 @@ describe('MarkAlertAttended', () => {
       created_at: FIXED_NOW,
     });
     context.state.notifications.set(orphan.notification_id, orphan);
-    await expect(context.useCases.markAlertAttended(orphan.notification_id)).rejects.toBeInstanceOf(
+    await expect(context.useCases.acknowledgeAlert(orphan.notification_id)).rejects.toBeInstanceOf(
       NotificationNotFoundError,
     );
   });

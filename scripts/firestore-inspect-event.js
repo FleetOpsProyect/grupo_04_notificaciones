@@ -4,7 +4,7 @@ const { createFirestoreClient } = require('../src/adapters/out/firestore/firesto
 const eventId = process.argv[2];
 
 if (!eventId) {
-  process.stderr.write('Uso: node scripts/firestore-inspect-event.js <evento_id>\n');
+  process.stderr.write('Uso: node scripts/firestore-inspect-event.js <event_id>\n');
   process.exitCode = 1;
 } else {
   const toJson = (snapshot) => {

@@ -15,14 +15,16 @@ const scenario = getArg('scenario') ?? args.find((item) => !item.startsWith('--'
 const eventId = getArg('event-id') ?? randomUUID();
 const correlationId = getArg('correlation-id') ?? randomUUID();
 
-const scenarios = buildScenarios({ eventId, correlationId, origen: 'kafka-local-smoke' });
+const scenarios = buildScenarios({ eventId, correlationId, source: 'kafka-local-smoke' });
 
 const TOPIC_BY_SCENARIO = Object.freeze({
   incident: config.kafka.topics.incident,
+  'minor-incident': config.kafka.topics.incident,
   assignment: config.kafka.topics.assignment,
   'document-expiring': config.kafka.topics.document,
   'document-expired': config.kafka.topics.document,
   maintenance: config.kafka.topics.maintenance,
+  fuel: config.kafka.topics.fuel,
   'invalid-envelope': config.kafka.topics.incident,
   'invalid-data': config.kafka.topics.incident,
 });
@@ -51,7 +53,7 @@ if (!selected) {
         topic,
         messages: [
           {
-            key: selected.envelope?.evento_id ?? `invalid-${Date.now()}`,
+            key: selected.envelope?.event_id ?? `invalid-${Date.now()}`,
             value,
             headers: { 'x-scenario': scenario },
           },
@@ -66,7 +68,7 @@ if (!selected) {
         {
           scenario,
           topic,
-          event_id: selected.envelope?.evento_id ?? null,
+          event_id: selected.envelope?.event_id ?? null,
           correlation_id: selected.envelope?.correlation_id ?? null,
         },
         null,

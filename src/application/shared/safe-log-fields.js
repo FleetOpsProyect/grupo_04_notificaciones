@@ -7,7 +7,7 @@ const safeNotificationLogFields = (notification) => ({
   severity: notification.severity,
   recipient_role: notification.recipient_role,
   recipient_email: maskEmail(notification.recipient_email),
-  dispatch_status: notification.dispatch_status,
+  delivery_status: notification.delivery_status,
   event_id: notification.event_id,
   correlation_id: notification.correlation_id,
 });

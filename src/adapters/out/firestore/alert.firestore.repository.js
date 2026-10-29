@@ -34,22 +34,22 @@ const createAlertFirestoreRepository = (db, transaction = null) => {
       return documentToAlert(snapshot.id, snapshot.data());
     },
 
-    async markAttended(alertId, at) {
+    async acknowledge(alertId, at) {
       const alert = await repository.findById(alertId);
       if (alert === null) {
         return null;
       }
-      const updated = alert.markAttended(at);
+      const updated = alert.acknowledge(at);
       if (updated !== alert) {
-        await repository.updateAttention(updated);
+        await repository.updateAcknowledgement(updated);
       }
       return updated;
     },
 
-    async updateAttention(alert) {
+    async updateAcknowledgement(alert) {
       await update(collection.doc(alert.alert_id), {
-        attention_status: alert.attention_status,
-        attended_at: toTimestamp(alert.attended_at),
+        acknowledgement_status: alert.acknowledgement_status,
+        acknowledged_at: toTimestamp(alert.acknowledged_at),
       });
     },
 
@@ -57,7 +57,7 @@ const createAlertFirestoreRepository = (db, transaction = null) => {
       return guard(async () => {
         const snapshot = await collection
           .where('severity', '==', 'CRITICAL')
-          .where('attention_status', '==', 'PENDING')
+          .where('acknowledgement_status', '==', 'PENDING')
           .count()
           .get();
         return snapshot.data().count;

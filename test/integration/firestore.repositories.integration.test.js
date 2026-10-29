@@ -1,8 +1,8 @@
 const { randomUUID } = require('node:crypto');
 const { createFirestoreIntegrationContext } = require('../helpers/firestore-integration');
 const {
-  AttentionStatus,
-  DispatchStatus,
+  AcknowledgementStatus,
+  DeliveryStatus,
   RecipientRole,
   Severity,
   Type,
@@ -51,7 +51,7 @@ describeFirestore('repositorios Firestore contra proyecto real', () => {
       severity: Severity.WARNING,
       reference_id: null,
       source_event_type: null,
-      attention_status: AttentionStatus.PENDING,
+      acknowledgement_status: AcknowledgementStatus.PENDING,
     });
     expect(storedAlert.created_at).toBeInstanceOf(Date);
 
@@ -77,8 +77,8 @@ describeFirestore('repositorios Firestore contra proyecto real', () => {
       alert_id: alert.alert_id,
       recipient_role: RecipientRole.MANAGEMENT,
       reference_id: null,
-      dispatch_status: DispatchStatus.PENDING_DISPATCH,
-      dispatch_attempts: 0,
+      delivery_status: DeliveryStatus.PENDING,
+      delivery_attempts: 0,
     });
     expect(storedNotification.created_at).toBeInstanceOf(Date);
     expect(storedNotification.next_attempt_at).toBeInstanceOf(Date);
@@ -91,50 +91,48 @@ describeFirestore('repositorios Firestore contra proyecto real', () => {
     const eventId = randomUUID();
     context.trackProcessedEvent(eventId);
     await context.repositories.processedEvents.create({
-      evento_id: eventId,
-      event_type: 'IncidenteReportadoEvent',
+      event_id: eventId,
+      event_type: 'severe_incident_reported_event',
       source: 'incident-service',
-      topic: 'fleetops.incident.incident.v1',
-      partition: 0,
-      offset: 10,
+      message_id: 'msg-1',
+      queue_url: 'http://localhost/queue.fifo',
       occurred_at: new Date('2026-10-25T12:00:00.000Z'),
       processed_at: new Date('2026-10-25T12:00:01.000Z'),
+      expires_at: new Date('2026-11-24T12:00:01.000Z'),
     });
 
     expect(await context.repositories.processedEvents.exists(eventId)).toBe(true);
     expect(await context.repositories.processedEvents.exists(randomUUID())).toBe(false);
   });
 
-  test('deduplica un evento por evento_id dentro de la transacción real', async () => {
+  test('deduplica un evento por event_id dentro de la transacción real', async () => {
     const envelope = context.makeIncidentEnvelope();
 
     const first = await context.processDomainEvent(envelope, {
-      topic: 'fleetops.incident.incident.v1',
-      partition: 0,
-      offset: 1,
+      queue_url: 'http://localhost/queue.fifo',
+      message_id: 'msg-1',
     });
     expect(first.status).toBe('processed');
     expect(first.notification_ids).toHaveLength(2);
 
     const second = await context.processDomainEvent(envelope, {
-      topic: 'fleetops.incident.incident.v1',
-      partition: 0,
-      offset: 2,
+      queue_url: 'http://localhost/queue.fifo',
+      message_id: 'msg-2',
     });
     expect(second.status).toBe('duplicate');
 
     const alerts = await context.db
       .collection('alerts')
-      .where('event_id', '==', envelope.evento_id)
+      .where('event_id', '==', envelope.event_id)
       .get();
     const notifications = await context.db
       .collection('notifications')
-      .where('event_id', '==', envelope.evento_id)
+      .where('event_id', '==', envelope.event_id)
       .get();
 
     expect(alerts.size).toBe(1);
     expect(notifications.size).toBe(2);
-    expect(await context.repositories.processedEvents.exists(envelope.evento_id)).toBe(true);
+    expect(await context.repositories.processedEvents.exists(envelope.event_id)).toBe(true);
   });
 
   test('revierte la transacción cuando falla una escritura', async () => {
@@ -165,23 +163,23 @@ describeFirestore('repositorios Firestore contra proyecto real', () => {
     });
     await context.repositories.notifications.createMany([first, second]);
 
-    const result = await context.markAlertAttended(first.notification_id);
+    const result = await context.acknowledgeAlert(first.notification_id);
     expect(result.alert_id).toBe(alert.alert_id);
-    expect(result.attention_status).toBe(AttentionStatus.ATTENDED);
+    expect(result.acknowledgement_status).toBe(AcknowledgementStatus.ACKNOWLEDGED);
 
     const storedAlert = await context.repositories.alerts.findById(alert.alert_id);
-    expect(storedAlert.attention_status).toBe(AttentionStatus.ATTENDED);
-    expect(storedAlert.attended_at).toBeInstanceOf(Date);
+    expect(storedAlert.acknowledgement_status).toBe(AcknowledgementStatus.ACKNOWLEDGED);
+    expect(storedAlert.acknowledged_at).toBeInstanceOf(Date);
 
     const notifications = await context.repositories.notifications.findByAlertId(alert.alert_id);
     expect(notifications).toHaveLength(2);
     for (const notification of notifications) {
-      expect(notification.attention_status).toBe(AttentionStatus.ATTENDED);
-      expect(notification.attended_at).toBeInstanceOf(Date);
+      expect(notification.acknowledgement_status).toBe(AcknowledgementStatus.ACKNOWLEDGED);
+      expect(notification.acknowledged_at).toBeInstanceOf(Date);
     }
 
-    const repeated = await context.markAlertAttended(second.notification_id);
-    expect(repeated.attention_status).toBe(AttentionStatus.ATTENDED);
+    const repeated = await context.acknowledgeAlert(second.notification_id);
+    expect(repeated.acknowledgement_status).toBe(AcknowledgementStatus.ACKNOWLEDGED);
   });
 
   test('gestiona reserva, expiración de lease y transiciones de despacho', async () => {
@@ -225,7 +223,7 @@ describeFirestore('repositorios Firestore contra proyecto real', () => {
     const storedSent = await context.repositories.notifications.findById(
       notification.notification_id,
     );
-    expect(storedSent.dispatch_status).toBe(DispatchStatus.SENT);
+    expect(storedSent.delivery_status).toBe(DeliveryStatus.SENT);
     expect(storedSent.provider_message_id).toBe(`provider-${context.runId}`);
     expect(storedSent.sent_at).toBeInstanceOf(Date);
     expect(storedSent.locked_until).toBeNull();
@@ -262,8 +260,8 @@ describeFirestore('repositorios Firestore contra proyecto real', () => {
       failedClaim.markFailed(now, 'IT_FAILURE', 1),
     );
     const storedFailed = await context.repositories.notifications.findById(failed.notification_id);
-    expect(storedFailed.dispatch_status).toBe(DispatchStatus.FAILED);
-    expect(storedFailed.dispatch_attempts).toBe(1);
+    expect(storedFailed.delivery_status).toBe(DeliveryStatus.FAILED);
+    expect(storedFailed.delivery_attempts).toBe(1);
     expect(storedFailed.failure_reason).toBe('IT_FAILURE');
     expect(storedFailed.next_attempt_at).toBeNull();
     expect(storedFailed.locked_until).toBeNull();
@@ -285,8 +283,8 @@ describeFirestore('repositorios Firestore contra proyecto real', () => {
     const storedRetried = await context.repositories.notifications.findById(
       retried.notification_id,
     );
-    expect(storedRetried.dispatch_status).toBe(DispatchStatus.PENDING_DISPATCH);
-    expect(storedRetried.dispatch_attempts).toBe(1);
+    expect(storedRetried.delivery_status).toBe(DeliveryStatus.PENDING);
+    expect(storedRetried.delivery_attempts).toBe(1);
     expect(storedRetried.failure_reason).toBe('IT_RETRY');
     expect(storedRetried.next_attempt_at).toEqual(nextAttempt);
     expect(storedRetried.locked_until).toBeNull();
@@ -300,26 +298,26 @@ describeFirestore('repositorios Firestore contra proyecto real', () => {
 
     const critical = context.createNotification({
       severity: Severity.CRITICAL,
-      dispatch_status: DispatchStatus.PENDING_DISPATCH,
+      delivery_status: DeliveryStatus.PENDING,
       type: Type.INCIDENT,
       created_at: older,
       next_attempt_at: older,
     });
     const warning = context.createNotification({
       severity: Severity.WARNING,
-      dispatch_status: DispatchStatus.SENT,
+      delivery_status: DeliveryStatus.SENT,
       type: Type.ASSIGNMENT,
       recipient_role: RecipientRole.MANAGEMENT,
-      attention_status: AttentionStatus.ATTENDED,
-      attended_at: middle,
+      acknowledgement_status: AcknowledgementStatus.ACKNOWLEDGED,
+      acknowledged_at: middle,
       created_at: middle,
       next_attempt_at: middle,
       sent_at: middle,
       provider_message_id: 'provider-search',
     });
     const informational = context.createNotification({
-      severity: Severity.INFORMATIONAL,
-      dispatch_status: DispatchStatus.FAILED,
+      severity: Severity.INFO,
+      delivery_status: DeliveryStatus.FAILED,
       type: Type.DOCUMENT,
       created_at: newer,
       next_attempt_at: newer,
@@ -327,7 +325,7 @@ describeFirestore('repositorios Firestore contra proyecto real', () => {
     });
     const latestWarning = context.createNotification({
       severity: Severity.WARNING,
-      dispatch_status: DispatchStatus.PENDING_DISPATCH,
+      delivery_status: DeliveryStatus.PENDING,
       type: Type.INCIDENT,
       created_at: now,
       next_attempt_at: now,
@@ -353,12 +351,16 @@ describeFirestore('repositorios Firestore contra proyecto real', () => {
     expect(firstPage.summary.by_severity).toEqual({
       CRITICAL: 1,
       WARNING: 2,
-      INFORMATIONAL: 1,
+      INFO: 1,
     });
-    expect(firstPage.summary.by_dispatch_status).toEqual({
-      PENDING_DISPATCH: 2,
+    expect(firstPage.summary.by_delivery_status).toEqual({
+      PENDING: 2,
       SENT: 1,
       FAILED: 1,
+    });
+    expect(firstPage.summary.by_acknowledgement_status).toEqual({
+      PENDING: 3,
+      ACKNOWLEDGED: 1,
     });
 
     const secondPage = await context.repositories.notifications.search({
@@ -372,7 +374,7 @@ describeFirestore('repositorios Firestore contra proyecto real', () => {
     ]);
 
     const sent = await context.repositories.notifications.search({
-      filters: { reference_id: context.runId, dispatch_status: DispatchStatus.SENT },
+      filters: { reference_id: context.runId, delivery_status: DeliveryStatus.SENT },
       page: 0,
       size: 10,
     });
@@ -397,7 +399,7 @@ describeFirestore('repositorios Firestore contra proyecto real', () => {
     const before = await context.repositories.alerts.countCriticalPending();
     const alert = context.createAlert({
       severity: Severity.CRITICAL,
-      attention_status: AttentionStatus.PENDING,
+      acknowledgement_status: AcknowledgementStatus.PENDING,
     });
     await context.repositories.alerts.create(alert);
 

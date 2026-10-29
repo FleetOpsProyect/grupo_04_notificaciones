@@ -1,13 +1,13 @@
-const { DispatchStatus, SEVERITY_VALUES } = require('../../domain/enums');
+const { DeliveryStatus, SEVERITY_VALUES } = require('../../domain/enums');
 const { formatBogotaIso } = require('../shared/time');
 
 const createGetNotificationStatusUseCase = ({ alertRepository, notificationRepository, clock }) => {
   return async function getNotificationStatus() {
-    const [criticalPending, total, bySeverity, byDispatch] = await Promise.all([
+    const [criticalPending, total, bySeverity, byDelivery] = await Promise.all([
       alertRepository.countCriticalPending(),
       notificationRepository.countAll(),
       notificationRepository.countBySeverity(),
-      notificationRepository.countByDispatchStatus(),
+      notificationRepository.countByDeliveryStatus(),
     ]);
 
     const severity = Object.fromEntries(SEVERITY_VALUES.map((value) => [value, 0]));
@@ -18,13 +18,13 @@ const createGetNotificationStatusUseCase = ({ alertRepository, notificationRepos
     }
 
     return {
-      alertas_criticas_pendientes: criticalPending,
+      critical_alerts_pending: criticalPending,
       total_notifications: total,
       by_severity: severity,
-      dispatch: {
-        pending: byDispatch?.[DispatchStatus.PENDING_DISPATCH] ?? 0,
-        sent: byDispatch?.[DispatchStatus.SENT] ?? 0,
-        failed: byDispatch?.[DispatchStatus.FAILED] ?? 0,
+      deliveries: {
+        pending: byDelivery?.[DeliveryStatus.PENDING] ?? 0,
+        sent: byDelivery?.[DeliveryStatus.SENT] ?? 0,
+        failed: byDelivery?.[DeliveryStatus.FAILED] ?? 0,
       },
       generated_at: formatBogotaIso(clock.now()),
     };

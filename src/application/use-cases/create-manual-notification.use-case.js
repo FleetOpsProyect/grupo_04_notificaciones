@@ -1,7 +1,12 @@
 const { randomUUID } = require('node:crypto');
 const { Alert } = require('../../domain/entities/alert');
 const { Notification } = require('../../domain/entities/notification');
-const { AttentionStatus, DispatchStatus, Origin, RecipientRole } = require('../../domain/enums');
+const {
+  AcknowledgementStatus,
+  DeliveryStatus,
+  Origin,
+  RecipientRole,
+} = require('../../domain/enums');
 const { InvalidDataError } = require('../../domain/errors');
 const { buildManualNotificationTemplate } = require('../templates/manual-notification.template');
 const { formatBogotaIso } = require('../shared/time');
@@ -36,8 +41,8 @@ const createCreateManualNotificationUseCase = ({
       type: input.type,
       severity: input.severity,
       reference_id: input.reference_id ?? null,
-      attention_status: AttentionStatus.PENDING,
-      attended_at: null,
+      acknowledgement_status: AcknowledgementStatus.PENDING,
+      acknowledged_at: null,
       correlation_id: input.correlation_id,
       created_at: now,
     });
@@ -56,10 +61,10 @@ const createCreateManualNotificationUseCase = ({
       source_event_type: null,
       event_id: null,
       correlation_id: input.correlation_id,
-      attention_status: AttentionStatus.PENDING,
-      attended_at: null,
-      dispatch_status: DispatchStatus.PENDING_DISPATCH,
-      dispatch_attempts: 0,
+      acknowledgement_status: AcknowledgementStatus.PENDING,
+      acknowledged_at: null,
+      delivery_status: DeliveryStatus.PENDING,
+      delivery_attempts: 0,
       next_attempt_at: now,
       locked_until: null,
       failure_reason: null,
@@ -81,7 +86,7 @@ const createCreateManualNotificationUseCase = ({
     return {
       notification_id: notificationId,
       alert_id: alertId,
-      dispatch_status: DispatchStatus.PENDING_DISPATCH,
+      delivery_status: DeliveryStatus.PENDING,
       created_at: formatBogotaIso(now),
     };
   };

@@ -8,7 +8,7 @@ const Type = Object.freeze({
 });
 
 const Severity = Object.freeze({
-  INFORMATIONAL: 'INFORMATIONAL',
+  INFO: 'INFO',
   WARNING: 'WARNING',
   CRITICAL: 'CRITICAL',
 });
@@ -18,13 +18,13 @@ const Origin = Object.freeze({
   MANUAL: 'MANUAL',
 });
 
-const AttentionStatus = Object.freeze({
+const AcknowledgementStatus = Object.freeze({
   PENDING: 'PENDING',
-  ATTENDED: 'ATTENDED',
+  ACKNOWLEDGED: 'ACKNOWLEDGED',
 });
 
-const DispatchStatus = Object.freeze({
-  PENDING_DISPATCH: 'PENDING_DISPATCH',
+const DeliveryStatus = Object.freeze({
+  PENDING: 'PENDING',
   SENT: 'SENT',
   FAILED: 'FAILED',
 });
@@ -42,13 +42,13 @@ module.exports = {
   Type,
   Severity,
   Origin,
-  AttentionStatus,
-  DispatchStatus,
+  AcknowledgementStatus,
+  DeliveryStatus,
   RecipientRole,
   TYPE_VALUES: values(Type),
   SEVERITY_VALUES: values(Severity),
   ORIGIN_VALUES: values(Origin),
-  ATTENTION_STATUS_VALUES: values(AttentionStatus),
-  DISPATCH_STATUS_VALUES: values(DispatchStatus),
+  ACKNOWLEDGEMENT_STATUS_VALUES: values(AcknowledgementStatus),
+  DELIVERY_STATUS_VALUES: values(DeliveryStatus),
   RECIPIENT_ROLE_VALUES: values(RecipientRole),
 };

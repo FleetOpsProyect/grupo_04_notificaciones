@@ -7,7 +7,7 @@ const { createTestContext, eventEnvelope } = require('../helpers/test-context');
 
 const manualBody = {
   type: 'GENERAL',
-  severity: 'INFORMATIONAL',
+  severity: 'INFO',
   recipient_role: 'MANAGEMENT',
   message: 'Mensaje manual de prueba',
   reference_id: 'REF-1',
@@ -41,17 +41,17 @@ describe('HTTP API de notificaciones', () => {
     const context = createTestContext();
     const app = buildApp(context);
     const response = await request(app)
-      .post('/api/v1/notificaciones')
+      .post('/notifications')
       .set('x-correlation-id', 'corr-http')
       .send({ ...manualBody, campo_desconocido: 'ignorado' });
 
     expect(response.status).toBe(201);
     expect(response.headers.location).toBe(
-      `/api/v1/notificaciones/${response.body.notification_id}`,
+      `/notifications/${response.body.notification_id}`,
     );
     expect(response.headers['x-correlation-id']).toBe('corr-http');
     expect(response.body).toMatchObject({
-      dispatch_status: 'PENDING_DISPATCH',
+      delivery_status: 'PENDING',
     });
     expect(context.state.notifications.size).toBe(1);
   });
@@ -60,53 +60,53 @@ describe('HTTP API de notificaciones', () => {
     const context = createTestContext();
     const app = buildApp(context);
     const invalid = await request(app)
-      .post('/api/v1/notificaciones')
+      .post('/notifications')
       .send({ ...manualBody, severity: 'OTRO' });
     expect(invalid.status).toBe(400);
     expect(invalid.body.codigo).toBe('INVALID_DATA');
     expect(invalid.body.errores[0].campo).toBe('severity');
 
     const employee = await request(app)
-      .post('/api/v1/notificaciones')
+      .post('/notifications')
       .send({ ...manualBody, recipient_role: 'EMPLOYEE' });
     expect(employee.status).toBe(400);
 
     const malformed = await request(app)
-      .post('/api/v1/notificaciones')
+      .post('/notifications')
       .set('Content-Type', 'application/json')
       .send('{"type":');
     expect(malformed.status).toBe(400);
     expect(malformed.body.codigo).toBe('MALFORMED_JSON');
   });
 
-  test('GET /estado devuelve conteos agregados', async () => {
+  test('GET /status devuelve conteos agregados', async () => {
     const context = createTestContext();
     await context.useCases.processDomainEvent(eventEnvelope());
     const app = buildApp(context);
-    const response = await request(app).get('/api/v1/notificaciones/estado');
+    const response = await request(app).get('/notifications/status');
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({
-      alertas_criticas_pendientes: 1,
+      critical_alerts_pending: 1,
       total_notifications: 2,
-      dispatch: { pending: 2, sent: 0, failed: 0 },
+      deliveries: { pending: 2, sent: 0, failed: 0 },
     });
   });
 
   test('GET lista, filtra y valida parámetros', async () => {
     const context = createTestContext();
-    await request(buildApp(context)).post('/api/v1/notificaciones').send(manualBody);
+    await request(buildApp(context)).post('/notifications').send(manualBody);
     await context.useCases.processDomainEvent(eventEnvelope());
     const app = buildApp(context);
 
     const listed = await request(app)
-      .get('/api/v1/notificaciones')
+      .get('/notifications')
       .query({ severity: 'CRITICAL', page: 0, size: 1 });
     expect(listed.status).toBe(200);
     expect(listed.body.total).toBe(2);
-    expect(listed.body.contenido).toHaveLength(1);
-    expect(listed.body.resumen.by_severity.CRITICAL).toBe(2);
+    expect(listed.body.content).toHaveLength(1);
+    expect(listed.body.summary.by_severity.CRITICAL).toBe(2);
 
-    const invalid = await request(app).get('/api/v1/notificaciones?size=500');
+    const invalid = await request(app).get('/notifications?size=500');
     expect(invalid.status).toBe(400);
     expect(invalid.body.codigo).toBe('INVALID_PARAMETERS');
   });
@@ -115,44 +115,48 @@ describe('HTTP API de notificaciones', () => {
     const context = createTestContext();
     const processed = await context.useCases.processDomainEvent(
       eventEnvelope({
-        tipo_evento: 'AsignacionInterrumpidaEvent',
-        datos: { empleado_email: 'empleado@example.com', resultado: 'MANUAL_REQUERIDA' },
+        event_type: 'interrupted_assignment_event',
+        data: {
+          assignment_id: 'ASG-1',
+          employee_email: 'empleado@example.com',
+          reassignment_result: 'MANUAL_REQUIRED',
+        },
       }),
     );
     const app = buildApp(context);
     const response = await request(app).get(
-      `/api/v1/notificaciones/${processed.notification_ids[0]}`,
+      `/notifications/${processed.notification_ids[0]}`,
     );
     expect(response.status).toBe(200);
     expect(response.body.recipient_email).toBe('e***@example.com');
 
-    const invalid = await request(app).get('/api/v1/notificaciones/no-es-uuid');
+    const invalid = await request(app).get('/notifications/no-es-uuid');
     expect(invalid.status).toBe(400);
     expect(invalid.body.codigo).toBe('INVALID_PARAMETERS');
 
     const missing = await request(app).get(
-      '/api/v1/notificaciones/00000000-0000-4000-8000-000000000099',
+      '/notifications/00000000-0000-4000-8000-000000000099',
     );
     expect(missing.status).toBe(404);
     expect(missing.body.codigo).toBe('NOTIFICATION_NOT_FOUND');
   });
 
-  test('PUT atender es idempotente', async () => {
+  test('PUT acknowledgement es idempotente', async () => {
     const context = createTestContext();
     const created = await request(buildApp(context))
-      .post('/api/v1/notificaciones')
+      .post('/notifications')
       .send(manualBody);
     const app = buildApp(context);
     const first = await request(app).put(
-      `/api/v1/notificaciones/${created.body.notification_id}/atender`,
+      `/notifications/${created.body.notification_id}/acknowledgement`,
     );
     expect(first.status).toBe(200);
-    expect(first.body.attention_status).toBe('ATTENDED');
+    expect(first.body.acknowledgement_status).toBe('ACKNOWLEDGED');
     const second = await request(app).put(
-      `/api/v1/notificaciones/${created.body.notification_id}/atender`,
+      `/notifications/${created.body.notification_id}/acknowledgement`,
     );
     expect(second.status).toBe(200);
-    expect(second.body.attended_at).toBe(first.body.attended_at);
+    expect(second.body.acknowledged_at).toBe(first.body.acknowledged_at);
   });
 
   test('expone health, readiness, metrics y 404', async () => {
