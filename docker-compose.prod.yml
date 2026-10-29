@@ -1,6 +1,6 @@
 services:
   notification-service:
-    image: docker.io/${IMAGE_REPOSITORY}:${IMAGE_TAG:-latest}
+    image: docker.io/${IMAGE_REPOSITORY:-camilom959/fleetops-notification-service}:${IMAGE_TAG:-latest}
     container_name: fleetops-notification-service
     env_file: .env
     ports:
