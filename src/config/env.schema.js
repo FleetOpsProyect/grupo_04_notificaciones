@@ -46,8 +46,6 @@ const envSchema = z
       z.string().trim().optional(),
     ),
 
-    BROKER_TYPE: z.enum(['kafka', 'sqs']).default('kafka'),
-
     AWS_REGION: z.string().trim().default('us-east-1'),
     AWS_ENDPOINT_URL: z.preprocess(
       (value) => (value === '' ? undefined : value),
@@ -80,34 +78,6 @@ const envSchema = z
       z.string().trim().optional(),
     ),
 
-    KAFKA_ENABLED: boolean.default(false),
-    KAFKA_BROKERS: z.string().trim().default('127.0.0.1:9092'),
-    KAFKA_CLIENT_ID: z.string().trim().min(1).default('notification-service'),
-    KAFKA_GROUP_ID: z.string().trim().min(1).default('notification-service'),
-    KAFKA_SSL: boolean.default(false),
-    KAFKA_SASL_MECHANISM: z.preprocess(
-      (value) => (value === '' ? undefined : value),
-      z.string().trim().optional(),
-    ),
-    KAFKA_SASL_USERNAME: z.preprocess(
-      (value) => (value === '' ? undefined : value),
-      z.string().trim().optional(),
-    ),
-    KAFKA_SASL_PASSWORD: z.preprocess(
-      (value) => (value === '' ? undefined : value),
-      z.string().optional(),
-    ),
-    KAFKA_TOPIC_INCIDENT: z.string().trim().min(1).default('fleetops.incident.incident.v1'),
-    KAFKA_TOPIC_ASSIGNMENT: z.string().trim().min(1).default('fleetops.assignment.assignment.v1'),
-    KAFKA_TOPIC_DOCUMENT: z.string().trim().min(1).default('fleetops.document.document.v1'),
-    KAFKA_TOPIC_MAINTENANCE: z
-      .string()
-      .trim()
-      .min(1)
-      .default('fleetops.maintenance.maintenance.v1'),
-    KAFKA_TOPIC_FUEL: z.string().trim().min(1).default('fleetops.fuel.consumption.v1'),
-    KAFKA_DLQ_TOPIC: z.string().trim().min(1).default('fleetops.dlq.notification'),
-
     EMAIL_PROVIDER: z.enum(['console', 'resend']).default('console'),
     RESEND_API_KEY: z.preprocess(
       (value) => (value === '' ? undefined : value),
@@ -130,7 +100,6 @@ const envSchema = z
     OUTBOX_RETRY_DELAYS_MS: z.string().default('5000,30000,120000'),
 
     CONSUMER_RETRY_DELAYS_MS: z.string().default('2000,10000,30000'),
-    CONSUMER_HEARTBEAT_MS: integer(3000, 1),
 
     RECIPIENT_FLEET_ADMINISTRATOR: email.default('admin@example.invalid'),
     RECIPIENT_MAINTENANCE_TECHNICIAN: email.default('tecnico@example.invalid'),
@@ -145,20 +114,6 @@ const envSchema = z
         code: z.ZodIssueCode.custom,
         path: ['RESEND_API_KEY'],
         message: 'RESEND_API_KEY es obligatoria cuando EMAIL_PROVIDER=resend',
-      });
-    }
-    if (value.BROKER_TYPE === 'sqs' && !value.SQS_QUEUE_URL) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['SQS_QUEUE_URL'],
-        message: 'SQS_QUEUE_URL es obligatoria cuando BROKER_TYPE=sqs',
-      });
-    }
-    if (value.KAFKA_SASL_MECHANISM && (!value.KAFKA_SASL_USERNAME || !value.KAFKA_SASL_PASSWORD)) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['KAFKA_SASL_USERNAME'],
-        message: 'KAFKA_SASL_USERNAME y KAFKA_SASL_PASSWORD son obligatorios con SASL',
       });
     }
   });
@@ -197,9 +152,6 @@ const loadConfig = (environment = process.env) => {
     logLevel: value.LOG_LEVEL,
     timezone: value.TZ,
     enableSwagger: value.ENABLE_SWAGGER,
-    broker: Object.freeze({
-      type: value.BROKER_TYPE,
-    }),
     aws: Object.freeze({
       region: value.AWS_REGION,
       endpoint: value.AWS_ENDPOINT_URL ?? null,
@@ -227,30 +179,6 @@ const loadConfig = (environment = process.env) => {
       projectId: value.FIREBASE_PROJECT_ID,
       credentialsPath: value.GOOGLE_APPLICATION_CREDENTIALS ?? null,
       emulatorHost: value.FIRESTORE_EMULATOR_HOST ?? null,
-    }),
-    kafka: Object.freeze({
-      enabled: value.BROKER_TYPE === 'kafka' ? value.KAFKA_ENABLED : false,
-      brokers: csv(value.KAFKA_BROKERS),
-      clientId: value.KAFKA_CLIENT_ID,
-      groupId: value.KAFKA_GROUP_ID,
-      ssl: value.KAFKA_SSL,
-      sasl: value.KAFKA_SASL_MECHANISM
-        ? Object.freeze({
-            mechanism: value.KAFKA_SASL_MECHANISM,
-            username: value.KAFKA_SASL_USERNAME,
-            password: value.KAFKA_SASL_PASSWORD,
-          })
-        : null,
-      topics: Object.freeze({
-        incident: value.KAFKA_TOPIC_INCIDENT,
-        assignment: value.KAFKA_TOPIC_ASSIGNMENT,
-        document: value.KAFKA_TOPIC_DOCUMENT,
-        maintenance: value.KAFKA_TOPIC_MAINTENANCE,
-        fuel: value.KAFKA_TOPIC_FUEL,
-      }),
-      dlqTopic: value.KAFKA_DLQ_TOPIC,
-      consumerRetryDelaysMs: Object.freeze(consumerRetryDelays),
-      consumerHeartbeatMs: value.CONSUMER_HEARTBEAT_MS,
     }),
     email: Object.freeze({
       provider: value.EMAIL_PROVIDER,

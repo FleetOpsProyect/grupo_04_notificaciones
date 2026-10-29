@@ -3,10 +3,7 @@ const interruptedAssignment = require('./interrupted-assignment.handler');
 const documentExpiring = require('./document-expiring.handler');
 const documentExpired = require('./document-expired.handler');
 const maintenanceRequired = require('./maintenance-required.handler');
-const {
-  fuelAnomalyHandler,
-  consumoAnomaloHandler,
-} = require('./fuel-anomaly.handler');
+const { fuelAnomalyHandler, consumoAnomaloHandler } = require('./fuel-anomaly.handler');
 
 const MAIN_HANDLERS = Object.freeze([
   severeIncidentHandler,

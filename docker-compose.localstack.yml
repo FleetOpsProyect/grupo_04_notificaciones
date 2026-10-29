@@ -3,14 +3,14 @@ services:
     image: localstack/localstack:3.7.2
     container_name: fleetops-localstack
     ports:
-      - "4566:4566"
+      - '4566:4566'
     environment:
       - SERVICES=sqs,sns
       - DEBUG=0
       - AWS_DEFAULT_REGION=us-east-1
       - PERSISTENCE=0
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:4566/_localstack/health']
       interval: 10s
       timeout: 5s
       retries: 10

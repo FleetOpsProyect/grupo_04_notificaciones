@@ -1,6 +1,4 @@
-const {
-  createSnsEventPublisher,
-} = require('../../src/adapters/out/sns/sns-event.publisher');
+const { createSnsEventPublisher } = require('../../src/adapters/out/sns/sns-event.publisher');
 const { createTestContext, eventEnvelope } = require('../helpers/test-context');
 
 const outboxOf = (context, eventType) =>
@@ -111,9 +109,9 @@ describe('PublishOutboxEvents', () => {
     expect(options.groupId).toBe(envelope.data.notification_id);
     expect(options.deduplicationId).toBe(envelope.event_id);
     expect(options.messageAttributes).toEqual({ event_type: 'notification_created_event' });
-    expect(outboxOf(context, 'notification_created_event').every((r) => r.status === 'PUBLISHED')).toBe(
-      true,
-    );
+    expect(
+      outboxOf(context, 'notification_created_event').every((r) => r.status === 'PUBLISHED'),
+    ).toBe(true);
   });
 
   test('reprograma el evento si SNS falla', async () => {
@@ -173,7 +171,9 @@ describe('SnsEventPublisher', () => {
 
   test('falla si falta el ARN del topic', async () => {
     const publisher = createSnsEventPublisher({ snsClient: { send: jest.fn() }, topicArn: null });
-    await expect(publisher.publish({})).rejects.toThrow('SNS_NOTIFICATION_TOPIC_ARN no configurado');
+    await expect(publisher.publish({})).rejects.toThrow(
+      'SNS_NOTIFICATION_TOPIC_ARN no configurado',
+    );
   });
 });
 

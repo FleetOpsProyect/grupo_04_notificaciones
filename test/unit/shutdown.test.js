@@ -60,7 +60,7 @@ describe('Cierre ordenado', () => {
 
   test('devuelve false y registra el fallo cuando una dependencia falla', async () => {
     const server = { close: jest.fn((callback) => callback()) };
-    const stop = jest.fn().mockRejectedValue(new Error('kafka no cerró'));
+    const stop = jest.fn().mockRejectedValue(new Error('broker no cerró'));
     const log = logger();
 
     await expect(shutdownResources({ server, stop, logger: log, timeoutMs: 1000 })).resolves.toBe(
@@ -69,7 +69,7 @@ describe('Cierre ordenado', () => {
 
     expect(stop).toHaveBeenCalledTimes(1);
     expect(log.error).toHaveBeenCalledWith(
-      expect.objectContaining({ error_message: 'kafka no cerró' }),
+      expect.objectContaining({ error_message: 'broker no cerró' }),
       'Fallo durante el cierre ordenado',
     );
   });

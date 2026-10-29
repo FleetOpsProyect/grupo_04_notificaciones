@@ -4,9 +4,7 @@ const { createNotificationFirestoreRepository } = require('./notification.firest
 const {
   createProcessedEventFirestoreRepository,
 } = require('./processed-event.firestore.repository');
-const {
-  createOutboxEventFirestoreRepository,
-} = require('./outbox-event.firestore.repository');
+const { createOutboxEventFirestoreRepository } = require('./outbox-event.firestore.repository');
 
 const createFirestoreUnitOfWork = (db) => ({
   async run(work) {

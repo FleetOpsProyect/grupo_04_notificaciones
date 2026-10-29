@@ -44,13 +44,8 @@ class Alert {
     if (acknowledged_at !== null) {
       assertDate('acknowledged_at', acknowledged_at);
     }
-    if (
-      acknowledgement_status === AcknowledgementStatus.ACKNOWLEDGED &&
-      acknowledged_at === null
-    ) {
-      throw new InvalidDataError(
-        'acknowledged_at es obligatorio cuando la alerta fue reconocida',
-      );
+    if (acknowledgement_status === AcknowledgementStatus.ACKNOWLEDGED && acknowledged_at === null) {
+      throw new InvalidDataError('acknowledged_at es obligatorio cuando la alerta fue reconocida');
     }
 
     this.alert_id = alert_id;
@@ -80,8 +75,7 @@ class Alert {
 
   isCriticalPending() {
     return (
-      this.severity === 'CRITICAL' &&
-      this.acknowledgement_status === AcknowledgementStatus.PENDING
+      this.severity === 'CRITICAL' && this.acknowledgement_status === AcknowledgementStatus.PENDING
     );
   }
 }

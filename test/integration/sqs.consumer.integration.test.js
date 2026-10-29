@@ -201,7 +201,10 @@ describeSqs('consumidor SQS contra LocalStack', () => {
 
     await waitFor(() => calls.length === 1, 'procesamiento del evento');
     expect(calls[0].event_id).toBe(envelope.event_id);
-    await waitFor(async () => (await queueAttributes(queueUrl)).visible === 0, 'borrado del mensaje');
+    await waitFor(
+      async () => (await queueAttributes(queueUrl)).visible === 0,
+      'borrado del mensaje',
+    );
     expect(await receiveFromDlq()).toBeNull();
   });
 

@@ -1,11 +1,6 @@
 const { formatBogotaText } = require('../shared/time');
 
-const buildDocumentExpiredTemplate = ({
-  documentId,
-  documentType,
-  ownerType,
-  expirationDate,
-}) => {
+const buildDocumentExpiredTemplate = ({ documentId, documentType, ownerType, expirationDate }) => {
   const subject = '[FleetOps] Documento vencido';
   const lines = [`Se detectó un documento vencido${documentId ? ` (${documentId})` : ''}.`];
   if (documentType) {

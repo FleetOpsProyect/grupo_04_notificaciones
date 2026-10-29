@@ -9,9 +9,7 @@ const buildDocumentExpiringTemplate = ({
     daysRemaining === null || daysRemaining === undefined
       ? '[FleetOps] Documento próximo a vencer'
       : `[FleetOps] Documento próximo a vencer en ${daysRemaining} días`;
-  const lines = [
-    `Un documento${documentId ? ` (${documentId})` : ''} está próximo a vencer.`,
-  ];
+  const lines = [`Un documento${documentId ? ` (${documentId})` : ''} está próximo a vencer.`];
   if (documentType) {
     lines.push(`Tipo de documento: ${documentType}.`);
   }

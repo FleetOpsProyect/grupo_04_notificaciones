@@ -7,35 +7,18 @@ describe('configuración', () => {
     expect(config.port).toBe(3000);
     expect(config.email.provider).toBe('console');
     expect(config.email.retryDelaysMs).toEqual([30000, 120000, 600000]);
-    expect(config.kafka.consumerRetryDelaysMs).toEqual([2000, 10000, 30000]);
-    expect(config.kafka.brokers).toEqual(['127.0.0.1:9092']);
-    expect(config.kafka.enabled).toBe(false);
+    expect(config.sqs.consumerRetryDelaysMs).toEqual([2000, 10000, 30000]);
+    expect(config.sqs.maxReceiveCount).toBe(4);
+    expect(config.sqs.queueUrl).toBeNull();
     expect(config.recipients.MANAGEMENT).toBe('gerencia@example.invalid');
   });
 
-  test('exige API key de Resend y credenciales SASL', () => {
+  test('exige API key de Resend', () => {
     expect(() => loadConfig({ EMAIL_PROVIDER: 'resend' })).toThrow(
       'Configuración de entorno inválida',
     );
-    expect(() =>
-      loadConfig({ KAFKA_SASL_MECHANISM: 'plain', KAFKA_SASL_USERNAME: 'user' }),
-    ).toThrow('Configuración de entorno inválida');
-    const config = loadConfig({
-      EMAIL_PROVIDER: 'resend',
-      RESEND_API_KEY: 're_test',
-      KAFKA_SASL_MECHANISM: 'plain',
-      KAFKA_SASL_USERNAME: 'user',
-      KAFKA_SASL_PASSWORD: 'secret',
-      KAFKA_ENABLED: 'true',
-      KAFKA_BROKERS: 'broker1:9092, broker2:9092',
-    });
+    const config = loadConfig({ EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_test' });
     expect(config.email.apiKey).toBe('re_test');
-    expect(config.kafka.sasl).toEqual({
-      mechanism: 'plain',
-      username: 'user',
-      password: 'secret',
-    });
-    expect(config.kafka.brokers).toEqual(['broker1:9092', 'broker2:9092']);
   });
 
   test('rechaza retardos inválidos', () => {

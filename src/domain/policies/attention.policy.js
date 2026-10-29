@@ -7,7 +7,6 @@ const nextAcknowledgementStatus = (current) => {
   return AcknowledgementStatus.ACKNOWLEDGED;
 };
 
-const shouldPreserveAcknowledgedAt = (current) =>
-  current === AcknowledgementStatus.ACKNOWLEDGED;
+const shouldPreserveAcknowledgedAt = (current) => current === AcknowledgementStatus.ACKNOWLEDGED;
 
 module.exports = { nextAcknowledgementStatus, shouldPreserveAcknowledgedAt };

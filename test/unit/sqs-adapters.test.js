@@ -117,9 +117,7 @@ describe('Publicador SQS de DLQ', () => {
     expect(input.MessageBody).toBe('{"event_id":"x"}');
     expect(input.MessageGroupId).toBe('group-1');
     expect(input.MessageDeduplicationId).toBe('msg-1-2-INVALID_ENVELOPE');
-    expect(input.MessageAttributes.event_type.StringValue).toBe(
-      'severe_incident_reported_event',
-    );
+    expect(input.MessageAttributes.event_type.StringValue).toBe('severe_incident_reported_event');
     expect(input.MessageAttributes.error_reason.StringValue).toBe('INVALID_ENVELOPE');
     expect(input.MessageAttributes.receive_count).toEqual({
       DataType: 'Number',

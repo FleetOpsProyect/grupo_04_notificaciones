@@ -23,15 +23,12 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "openapi:validate": "node scripts/validate-openapi.js",
-    "kafka:setup": "node scripts/kafka-setup.js",
-    "kafka:publish": "node scripts/kafka-publish.js",
     "firestore:event": "node scripts/firestore-inspect-event.js",
     "firestore:cleanup": "node scripts/firestore-cleanup-event.js",
     "firestore:indexes": "node scripts/firestore-indexes.js",
     "sqs:setup:localstack": "node scripts/sqs-setup-localstack.js",
     "sqs:publish": "node scripts/sqs-publish.js",
-    "test:integration:sqs": "node scripts/run-sqs-integration.js",
-    "test:integration:kafka": "node scripts/run-kafka-integration.js"
+    "test:integration:sqs": "node scripts/run-sqs-integration.js"
   },
   "dependencies": {
     "@apidevtools/swagger-parser": "13.1.0",
@@ -41,7 +38,6 @@
     "express": "5.3.0",
     "firebase-admin": "14.5.0",
     "helmet": "8.3.0",
-    "kafkajs": "2.2.4",
     "opossum": "10.0.0",
     "pino": "10.4.0",
     "pino-http": "11.0.0",

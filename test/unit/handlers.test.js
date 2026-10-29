@@ -161,9 +161,7 @@ describe('event handlers', () => {
     expect(full.alert.severity).toBe(Severity.CRITICAL);
     expect(full.alert.reference_id).toBe('DOC-1');
     expect(() =>
-      documentExpired.buildPlan(
-        eventEnvelope({ event_type: 'document_expired_event', data: {} }),
-      ),
+      documentExpired.buildPlan(eventEnvelope({ event_type: 'document_expired_event', data: {} })),
     ).toThrow(InvalidDataError);
   });
 

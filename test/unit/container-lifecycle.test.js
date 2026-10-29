@@ -28,19 +28,30 @@ const mockFirestore = {
 jest.mock('../../src/adapters/out/firestore/firestore.client', () => ({
   createFirestoreClient: jest.fn(() => mockFirestore),
 }));
-jest.mock('../../src/adapters/out/kafka/kafka.client', () => ({
-  createKafkaClient: jest.fn(),
+const mockSqsClient = { send: jest.fn().mockResolvedValue({}), destroy: jest.fn() };
+const mockSnsClient = { send: jest.fn().mockResolvedValue({}), destroy: jest.fn() };
+const mockConsumer = { start: jest.fn().mockResolvedValue(), stop: jest.fn().mockResolvedValue() };
+
+jest.mock('../../src/adapters/out/sqs/sqs.client', () => ({
+  createSqsClient: jest.fn(() => mockSqsClient),
+}));
+jest.mock('../../src/adapters/out/sns/sns.client', () => ({
+  createSnsClient: jest.fn(() => mockSnsClient),
+}));
+jest.mock('../../src/adapters/in/sqs/sqs-event.consumer', () => ({
+  createSqsEventConsumer: jest.fn(() => mockConsumer),
 }));
 
 const { createContainer } = require('../../src/config/composition-root');
 const { createFirestoreClient } = require('../../src/adapters/out/firestore/firestore.client');
-const { createKafkaClient } = require('../../src/adapters/out/kafka/kafka.client');
+const { createSqsClient } = require('../../src/adapters/out/sqs/sqs.client');
+const { createSqsEventConsumer } = require('../../src/adapters/in/sqs/sqs-event.consumer');
 
 const buildConfig = (overrides = {}) => ({
   ...baseConfig,
   logLevel: 'silent',
-  broker: { type: 'kafka' },
-  kafka: { ...baseConfig.kafka, enabled: false },
+  sqs: { ...baseConfig.sqs, queueUrl: 'http://localhost/queue.fifo', dlqUrl: null },
+  sns: { notificationTopicArn: null },
   dispatch: { ...baseConfig.dispatch, intervalMs: 60000 },
   enableSwagger: false,
   ...overrides,
@@ -54,19 +65,21 @@ describe('Ciclo de vida del contenedor', () => {
     mockChain.get.mockResolvedValue({ docs: [] });
   });
 
-  test('arranca con Kafka deshabilitado, responde readiness y cierra recursos', async () => {
+  test('arranca con SQS, responde readiness y cierra recursos', async () => {
     const container = createContainer(buildConfig());
 
     await container.start();
     await new Promise((resolve) => setImmediate(resolve));
 
-    expect(createKafkaClient).not.toHaveBeenCalled();
+    expect(createSqsClient).toHaveBeenCalled();
+    expect(createSqsEventConsumer).toHaveBeenCalled();
+    expect(mockConsumer.start).toHaveBeenCalled();
 
     const ready = await request(container.app).get('/ready');
     expect(ready.status).toBe(200);
     expect(ready.body.status).toBe('READY');
     expect(ready.body.checks.database.status).toBe('UP');
-    expect(ready.body.checks.broker).toEqual({ status: 'DISABLED' });
+    expect(ready.body.checks.broker).toEqual({ status: 'UP' });
 
     await container.stop();
 
@@ -84,7 +97,7 @@ describe('Ciclo de vida del contenedor', () => {
     expect(ready.status).toBe(503);
     expect(ready.body.status).toBe('NOT_READY');
     expect(ready.body.checks.database.status).toBe('DOWN');
-    expect(ready.body.checks.broker).toEqual({ status: 'DISABLED' });
+    expect(ready.body.checks.broker).toEqual({ status: 'UP' });
 
     await container.stop();
   });
@@ -99,5 +112,6 @@ describe('Ciclo de vida del contenedor', () => {
 
     expect(createFirestoreClient).toHaveBeenCalledTimes(1);
     expect(mockFirestore.close).toHaveBeenCalledTimes(1);
+    expect(mockConsumer.stop).toHaveBeenCalledTimes(1);
   });
 });

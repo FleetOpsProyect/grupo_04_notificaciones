@@ -15,9 +15,7 @@ const buildFuelAnomalyTemplate = ({
   averageEfficiency,
   gallonsPurchased,
 }) => {
-  const subject = `[FleetOps] Consumo anómalo detectado${
-    vehicleId ? ` en ${vehicleId}` : ''
-  }`;
+  const subject = `[FleetOps] Consumo anómalo detectado${vehicleId ? ` en ${vehicleId}` : ''}`;
   const lines = ['Se detectó un consumo de combustible anómalo.'];
   if (fuelRecordId) {
     lines.push(`Registro de combustible: ${fuelRecordId}`);

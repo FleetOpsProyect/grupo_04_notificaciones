@@ -33,7 +33,6 @@ const describeFirestore = RUN ? describe : describe.skip;
 const buildConfig = () => ({
   ...baseConfig,
   logLevel: 'silent',
-  kafka: { ...baseConfig.kafka, enabled: false },
   dispatch: { ...baseConfig.dispatch, intervalMs: 600000, batchSize: 20 },
   recipients: {
     ...baseConfig.recipients,

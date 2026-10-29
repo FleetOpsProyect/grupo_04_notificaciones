@@ -7,7 +7,7 @@
 
 ## Actualización vigente (2026-10-29)
 
-- Broker: **Amazon SNS + SQS FIFO** (Kafka queda como modo alterno hasta la Fase 11).
+- Broker: **Amazon SNS + SQS FIFO** (único broker; Kafka retirado).
 - Sobre estándar en inglés: `event_id, event_type, version, occurred_at, source, correlation_id, data`.
 - 7 handlers con aviso, incluidos incidente leve/grave y combustible.
 - API en inglés sin prefijo: `/notifications`, `/notifications/status`, `/notifications/{id}`, `/notifications/{id}/acknowledgement`.

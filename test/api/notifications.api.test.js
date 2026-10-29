@@ -46,9 +46,7 @@ describe('HTTP API de notificaciones', () => {
       .send({ ...manualBody, campo_desconocido: 'ignorado' });
 
     expect(response.status).toBe(201);
-    expect(response.headers.location).toBe(
-      `/notifications/${response.body.notification_id}`,
-    );
+    expect(response.headers.location).toBe(`/notifications/${response.body.notification_id}`);
     expect(response.headers['x-correlation-id']).toBe('corr-http');
     expect(response.body).toMatchObject({
       delivery_status: 'PENDING',
@@ -124,9 +122,7 @@ describe('HTTP API de notificaciones', () => {
       }),
     );
     const app = buildApp(context);
-    const response = await request(app).get(
-      `/notifications/${processed.notification_ids[0]}`,
-    );
+    const response = await request(app).get(`/notifications/${processed.notification_ids[0]}`);
     expect(response.status).toBe(200);
     expect(response.body.recipient_email).toBe('e***@example.com');
 
@@ -134,18 +130,14 @@ describe('HTTP API de notificaciones', () => {
     expect(invalid.status).toBe(400);
     expect(invalid.body.codigo).toBe('INVALID_PARAMETERS');
 
-    const missing = await request(app).get(
-      '/notifications/00000000-0000-4000-8000-000000000099',
-    );
+    const missing = await request(app).get('/notifications/00000000-0000-4000-8000-000000000099');
     expect(missing.status).toBe(404);
     expect(missing.body.codigo).toBe('NOTIFICATION_NOT_FOUND');
   });
 
   test('PUT acknowledgement es idempotente', async () => {
     const context = createTestContext();
-    const created = await request(buildApp(context))
-      .post('/notifications')
-      .send(manualBody);
+    const created = await request(buildApp(context)).post('/notifications').send(manualBody);
     const app = buildApp(context);
     const first = await request(app).put(
       `/notifications/${created.body.notification_id}/acknowledgement`,

@@ -31,8 +31,7 @@ const buildHarness = ({ processDomainEvent, receiveCount = 1, overrides = {} } =
     sqsClient,
     sqsConfig: { consumerRetryDelaysMs: [2000, 10000, 30000], maxReceiveCount: 4 },
     queueUrl: 'http://localhost/queue.fifo',
-    processDomainEvent:
-      processDomainEvent ?? jest.fn().mockResolvedValue({ status: 'processed' }),
+    processDomainEvent: processDomainEvent ?? jest.fn().mockResolvedValue({ status: 'processed' }),
     deadLetterPublisher,
     logger,
     metrics,

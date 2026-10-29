@@ -72,10 +72,7 @@ class Notification {
     if (!Number.isInteger(delivery_attempts) || delivery_attempts < 0) {
       throw new InvalidDataError('delivery_attempts debe ser un entero no negativo');
     }
-    if (
-      acknowledgement_status === AcknowledgementStatus.ACKNOWLEDGED &&
-      acknowledged_at === null
-    ) {
+    if (acknowledgement_status === AcknowledgementStatus.ACKNOWLEDGED && acknowledged_at === null) {
       throw new InvalidDataError(
         'acknowledged_at es obligatorio cuando la notificación fue reconocida',
       );
@@ -116,8 +113,7 @@ class Notification {
 
   isFinal() {
     return (
-      this.delivery_status === DeliveryStatus.SENT ||
-      this.delivery_status === DeliveryStatus.FAILED
+      this.delivery_status === DeliveryStatus.SENT || this.delivery_status === DeliveryStatus.FAILED
     );
   }
 

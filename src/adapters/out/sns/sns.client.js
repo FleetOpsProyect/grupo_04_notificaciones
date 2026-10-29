@@ -13,9 +13,7 @@ const createSnsClient = (config = {}) => {
     clientConfig.credentials = {
       accessKeyId: config.credentials.accessKeyId,
       secretAccessKey: config.credentials.secretAccessKey,
-      ...(config.credentials.sessionToken
-        ? { sessionToken: config.credentials.sessionToken }
-        : {}),
+      ...(config.credentials.sessionToken ? { sessionToken: config.credentials.sessionToken } : {}),
     };
   }
 

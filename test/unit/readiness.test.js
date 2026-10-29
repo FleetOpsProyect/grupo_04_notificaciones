@@ -40,7 +40,7 @@ describe('Readiness', () => {
   test('responde NOT_READY con Firestore y broker caídos', async () => {
     const check = createReadiness({
       databaseCheck: jest.fn().mockRejectedValue(new Error('firestore caído')),
-      brokerCheck: jest.fn().mockRejectedValue(new Error('kafka caído')),
+      brokerCheck: jest.fn().mockRejectedValue(new Error('broker caído')),
       timeoutMs: 100,
     });
 
@@ -51,7 +51,7 @@ describe('Readiness', () => {
     expect(result.body.checks.broker.status).toBe('DOWN');
   });
 
-  test('marca el broker como DISABLED cuando Kafka está deshabilitado', async () => {
+  test('marca el broker como DISABLED cuando el broker está deshabilitado', async () => {
     const check = createReadiness({
       databaseCheck: jest.fn().mockResolvedValue(),
       brokerCheck: null,
@@ -67,7 +67,7 @@ describe('Readiness', () => {
   test('no bloquea readiness por broker caído si Firestore responde', async () => {
     const check = createReadiness({
       databaseCheck: jest.fn().mockResolvedValue(),
-      brokerCheck: jest.fn().mockRejectedValue(new Error('kafka caído')),
+      brokerCheck: jest.fn().mockRejectedValue(new Error('broker caído')),
       timeoutMs: 100,
     });
 
