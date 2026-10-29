@@ -3,6 +3,7 @@ coverage/
 .env
 .env.*
 !.env.example
+!.env.production.example
 *.log
 .firebase/
 firebase-debug.log
