@@ -39,6 +39,8 @@ paths:
           $ref: '#/components/responses/InvalidData'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
     get:
       tags: [Notifications]
       summary: Listar notificaciones
@@ -109,6 +111,8 @@ paths:
           $ref: '#/components/responses/InvalidParameters'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /notifications/status:
     get:
       tags: [Notifications]
@@ -123,6 +127,8 @@ paths:
                 $ref: '#/components/schemas/NotificationStatusResponse'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /notifications/{id}:
     get:
       tags: [Notifications]
@@ -143,6 +149,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /notifications/{id}/acknowledgement:
     put:
       tags: [Notifications]
@@ -163,6 +171,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /health:
     get:
       tags: [Operations]
@@ -292,7 +302,7 @@ components:
         source_event_type:
           type: string
           nullable: true
-        event_id:
+        source_event_id:
           type: string
           nullable: true
         correlation_id:
@@ -416,6 +426,7 @@ components:
       properties:
         codigo:
           type: string
+          description: 'Código de error. Valores posibles: INVALID_DATA, MALFORMED_JSON, INVALID_PARAMETERS, INVALID_STATE_TRANSITION, NOTIFICATION_NOT_FOUND, NOT_FOUND, INTERNAL_ERROR y SERVICE_UNAVAILABLE.'
           example: INVALID_DATA
         mensaje:
           type: string
@@ -456,6 +467,12 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
     ServiceUnavailable:
       description: Dependencia temporalmente no disponible
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: Error interno no controlado
       content:
         application/json:
           schema:

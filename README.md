@@ -77,20 +77,23 @@ Ejecute las suites en secuencia, no en paralelo. Si el servicio local sigue acti
 
 Variables relevantes:
 
-| Variable                       | Uso                                                  |
-| ------------------------------ | ---------------------------------------------------- |
-| `PORT`                         | Puerto HTTP, `3000` por defecto                      |
-| `FIREBASE_PROJECT_ID`          | Proyecto Firestore                                   |
-| `FIRESTORE_EMULATOR_HOST`      | Emulador local de Firestore                          |
-| `SQS_QUEUE_URL`, `SQS_DLQ_URL` | Colas FIFO del servicio                              |
-| `SQS_MAX_RECEIVE_COUNT`        | Recepciones antes de DLQ, `4` por defecto            |
-| `SNS_NOTIFICATION_TOPIC_ARN`   | Topic SNS propio para eventos `notification_*`       |
-| `EMAIL_PROVIDER`               | `console` o `resend`                                 |
-| `RESEND_API_KEY`               | Obligatoria con `EMAIL_PROVIDER=resend`              |
-| `EMAIL_FROM`                   | Remitente verificado; correo plano, sin nombre       |
-| `EMAIL_RETRY_DELAYS_MS`        | Backoff de correo, por defecto `30000,120000,600000` |
-| `DISPATCH_INTERVAL_MS`         | Frecuencia del scheduler, `10000` por defecto        |
-| `RECIPIENT_*`                  | Correos de destino por rol                           |
+| Variable                       | Uso                                                    |
+| ------------------------------ | ------------------------------------------------------ |
+| `PORT`                         | Puerto HTTP, `3000` por defecto                        |
+| `FIREBASE_PROJECT_ID`          | Proyecto Firestore                                     |
+| `FIRESTORE_EMULATOR_HOST`      | Emulador local de Firestore                            |
+| `SQS_QUEUE_URL`, `SQS_DLQ_URL` | Colas FIFO del servicio                                |
+| `SQS_MAX_RECEIVE_COUNT`        | Recepciones antes de DLQ, `4` por defecto              |
+| `SNS_NOTIFICATION_TOPIC_ARN`   | Topic SNS propio para eventos `notification_*`         |
+| `EMAIL_PROVIDER`               | `console` o `resend`                                   |
+| `RESEND_API_KEY`               | Obligatoria con `EMAIL_PROVIDER=resend`                |
+| `EMAIL_FROM`                   | Remitente verificado; correo plano, sin nombre         |
+| `EMAIL_RETRY_DELAYS_MS`        | Backoff de correo, por defecto `30000,120000,600000`   |
+| `EMAIL_CB_FAILURE_THRESHOLD`   | Fallos para abrir el Circuit Breaker, `5` por defecto  |
+| `CONSUMER_RETRY_DELAYS_MS`     | Esperas del consumidor, por defecto `2000,10000,30000` |
+| `DISPATCH_INTERVAL_MS`         | Frecuencia del scheduler, `10000` por defecto          |
+| `OUTBOX_POLL_INTERVAL_MS`      | Frecuencia del publicador Outbox, `2000` por defecto   |
+| `RECIPIENT_*`                  | Correos de destino por rol                             |
 
 ## Endpoints
 

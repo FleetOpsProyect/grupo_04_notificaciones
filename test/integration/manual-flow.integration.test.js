@@ -67,7 +67,7 @@ const buildSecondNotification = (alertId, referenceId) =>
     reference_id: referenceId,
     origin: Origin.MANUAL,
     source_event_type: null,
-    event_id: null,
+    source_event_id: null,
     correlation_id: randomUUID(),
     acknowledgement_status: AcknowledgementStatus.PENDING,
     acknowledged_at: null,

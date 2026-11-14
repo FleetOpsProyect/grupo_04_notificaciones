@@ -38,7 +38,7 @@ class Notification {
     reference_id = null,
     origin,
     source_event_type = null,
-    event_id = null,
+    source_event_id = null,
     correlation_id,
     acknowledgement_status = AcknowledgementStatus.PENDING,
     acknowledged_at = null,
@@ -97,7 +97,7 @@ class Notification {
     this.reference_id = reference_id;
     this.origin = origin;
     this.source_event_type = source_event_type;
-    this.event_id = event_id;
+    this.source_event_id = source_event_id;
     this.correlation_id = correlation_id;
     this.acknowledgement_status = acknowledgement_status;
     this.acknowledged_at = acknowledged_at;
