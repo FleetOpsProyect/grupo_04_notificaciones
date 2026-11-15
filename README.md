@@ -97,17 +97,17 @@ Variables relevantes:
 
 ## Endpoints
 
-| Método | Ruta                                 | Descripción                               |
-| ------ | ------------------------------------ | ----------------------------------------- |
-| `POST` | `/notifications`                     | Crea alerta y notificación manual         |
-| `GET`  | `/notifications/status`              | Conteos agregados                         |
-| `GET`  | `/notifications`                     | Listado con filtros, paginación y resumen |
-| `GET`  | `/notifications/:id`                 | Detalle con correo enmascarado            |
-| `PUT`  | `/notifications/:id/acknowledgement` | Reconocimiento idempotente                |
-| `GET`  | `/health`                            | Liveness                                  |
-| `GET`  | `/ready`                             | Readiness; `503` solo si Firestore falla  |
-| `GET`  | `/metrics`                           | Métricas Prometheus                       |
-| `GET`  | `/api-docs`                          | Swagger UI si `ENABLE_SWAGGER=true`       |
+| Método | Ruta                                 | Descripción                                                    |
+| ------ | ------------------------------------ | -------------------------------------------------------------- |
+| `POST` | `/notifications`                     | Crea alerta y notificación manual                              |
+| `GET`  | `/notifications/status`              | Conteos agregados                                              |
+| `GET`  | `/notifications`                     | Listado con filtros, paginación y resumen                      |
+| `GET`  | `/notifications/:id`                 | Detalle con correo enmascarado                                 |
+| `PUT`  | `/notifications/:id/acknowledgement` | Reconocimiento idempotente                                     |
+| `GET`  | `/health`                            | Liveness                                                       |
+| `GET`  | `/ready`                             | Readiness; `503` solo si Firestore falla                       |
+| `GET`  | `/metrics`                           | Métricas Prometheus                                            |
+| `GET`  | `/api-docs`                          | Swagger UI si `ENABLE_SWAGGER=true`; deshabilitado por defecto |
 
 Contrato completo: `openapi/notification-service.yaml`.
 
@@ -161,7 +161,9 @@ test/
 
 - CommonJS, Node.js y Jest; sin transpilación.
 - Consultas de listado con filtros compuestos usan índices; si Firestore no puede resolver una
-  combinación, se ejecuta un fallback acotado a 10.000 documentos.
+  combinación, se ejecuta un fallback acotado a 500 documentos y se registra la combinación exacta
+  de filtros para guiar la creación del índice faltante.
+- El listado exige `page * size <= 10000`.
 - El índice `delivery_status + next_attempt_at` y el de outbox están creados y el flujo
   `SQS -> Firestore -> scheduler -> correo console -> outbox -> SNS` funciona. Los 9 índices
   compuestos están creados y en `READY`; la cuenta de servicio no tiene permiso para crearlos por script.

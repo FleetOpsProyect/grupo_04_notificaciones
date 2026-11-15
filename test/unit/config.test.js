@@ -11,6 +11,7 @@ describe('configuración', () => {
     expect(config.sqs.maxReceiveCount).toBe(4);
     expect(config.sqs.queueUrl).toBeNull();
     expect(config.recipients.MANAGEMENT).toBe('gerencia@example.invalid');
+    expect(config.enableSwagger).toBe(false);
   });
 
   test('exige API key de Resend', () => {
@@ -66,6 +67,19 @@ describe('sobre de evento estándar', () => {
     expect(() =>
       parseEventEnvelope(Buffer.from(JSON.stringify({ ...validEnvelope, version: '2' }))),
     ).not.toThrow();
+  });
+
+  test('rechaza campos del sobre que exceden la longitud máxima', () => {
+    expect(() =>
+      parseEventEnvelope(
+        Buffer.from(JSON.stringify({ ...validEnvelope, event_type: 'x'.repeat(101) })),
+      ),
+    ).toThrow('Sobre de evento inválido');
+    expect(() =>
+      parseEventEnvelope(
+        Buffer.from(JSON.stringify({ ...validEnvelope, source: 'x'.repeat(101) })),
+      ),
+    ).toThrow('Sobre de evento inválido');
   });
 
   test('rechaza event_type del atributo distinto al del sobre', () => {

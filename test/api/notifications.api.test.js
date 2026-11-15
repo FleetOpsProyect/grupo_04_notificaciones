@@ -107,6 +107,10 @@ describe('HTTP API de notificaciones', () => {
     const invalid = await request(app).get('/notifications?size=500');
     expect(invalid.status).toBe(400);
     expect(invalid.body.codigo).toBe('INVALID_PARAMETERS');
+
+    const excessiveOffset = await request(app).get('/notifications?page=101&size=100');
+    expect(excessiveOffset.status).toBe(400);
+    expect(excessiveOffset.body.codigo).toBe('INVALID_PARAMETERS');
   });
 
   test('GET por id enmascara el correo y valida el UUID', async () => {

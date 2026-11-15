@@ -6,6 +6,7 @@ const { safeNotificationLogFields } = require('../shared/safe-log-fields');
 const { buildCreatedEvent } = require('../shared/notification-events');
 
 const PROCESSED_EVENT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const UNSUPPORTED_EVENT_TYPE = 'unsupported';
 
 const createProcessDomainEventUseCase = ({
   unitOfWork,
@@ -18,7 +19,7 @@ const createProcessDomainEventUseCase = ({
   return async function processDomainEvent(envelope, context = {}) {
     const handler = registry.resolve(envelope.event_type);
     if (!handler) {
-      metrics?.eventsProcessed?.inc({ event_type: envelope.event_type, result: 'IGNORED' });
+      metrics?.eventsProcessed?.inc({ event_type: UNSUPPORTED_EVENT_TYPE, result: 'IGNORED' });
       return { status: 'ignored', reason: 'unsupported_event_type' };
     }
 

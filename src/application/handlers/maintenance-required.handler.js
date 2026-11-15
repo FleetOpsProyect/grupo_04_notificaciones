@@ -3,15 +3,16 @@ const { Type, Severity, RecipientRole } = require('../../domain/enums');
 const { createNotificationPlan } = require('../shared/notification-plan');
 const { buildMaintenanceRequiredTemplate } = require('../templates/maintenance-required.template');
 const { parseEventData } = require('./event-data');
+const { optionalIdentifier, optionalMediumText } = require('./event-fields');
 
 const eventType = 'MantenimientoPreventivoRequeridoEvent';
 const maintenanceSchema = z
   .object({
-    mantenimiento_id: z.string().min(1).optional(),
-    vehiculo_id: z.string().min(1).optional(),
+    mantenimiento_id: optionalIdentifier,
+    vehiculo_id: optionalIdentifier,
     kilometraje_actual: z.coerce.number().nonnegative().optional(),
     umbral_km: z.coerce.number().nonnegative().optional(),
-    motivo: z.string().min(1).optional(),
+    motivo: optionalMediumText,
   })
   .passthrough();
 

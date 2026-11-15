@@ -89,6 +89,7 @@ paths:
             format: date-time
         - name: page
           in: query
+          description: 'La página debe cumplir page * size <= 10000.'
           schema:
             type: integer
             minimum: 0

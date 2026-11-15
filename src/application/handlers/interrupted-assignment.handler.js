@@ -6,20 +6,21 @@ const {
   buildAssignmentInterruptedTemplate,
 } = require('../templates/assignment-interrupted.template');
 const { parseEventData } = require('./event-data');
+const { identifier, optionalIdentifier, emailText } = require('./event-fields');
 
 const eventType = 'interrupted_assignment_event';
 const assignmentDataSchema = z
   .object({
-    assignment_id: z.string().min(1),
-    vehicle_id: z.string().min(1).optional(),
-    driver_id: z.string().min(1).optional(),
-    employee_id: z.string().min(1).optional(),
-    employee_email: z.string().min(1),
-    incident_id: z.string().min(1).optional(),
+    assignment_id: identifier,
+    vehicle_id: optionalIdentifier,
+    driver_id: optionalIdentifier,
+    employee_id: optionalIdentifier,
+    employee_email: emailText,
+    incident_id: optionalIdentifier,
     reassignment_result: z
       .enum(['MANUAL_REQUIRED', 'AUTOMATIC_SUCCESSFUL', 'AUTOMATIC_FAILED'])
       .optional(),
-    new_assignment_id: z.string().min(1).optional(),
+    new_assignment_id: optionalIdentifier,
   })
   .passthrough();
 

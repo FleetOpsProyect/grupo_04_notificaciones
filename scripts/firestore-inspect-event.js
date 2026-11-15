@@ -23,8 +23,8 @@ if (!eventId) {
     try {
       const [processed, alerts, notifications] = await Promise.all([
         firestore.db.collection('processed_events').doc(eventId).get(),
-        firestore.db.collection('alerts').where('event_id', '==', eventId).get(),
-        firestore.db.collection('notifications').where('event_id', '==', eventId).get(),
+        firestore.db.collection('alerts').where('source_event_id', '==', eventId).get(),
+        firestore.db.collection('notifications').where('source_event_id', '==', eventId).get(),
       ]);
 
       const outbox = [];
