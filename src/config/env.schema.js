@@ -87,14 +87,14 @@ const envSchema = z
     EMAIL_TIMEOUT_MS: integer(5000, 1),
     EMAIL_RETRY_DELAYS_MS: z.string().default('30000,120000,600000'),
     EMAIL_MAX_ATTEMPTS: integer(4, 1),
-    EMAIL_CB_THRESHOLD: integer(5, 1),
+    EMAIL_CB_FAILURE_THRESHOLD: integer(5, 1),
     EMAIL_CB_RESET_MS: integer(30000, 1),
 
     DISPATCH_INTERVAL_MS: integer(10000, 1),
     DISPATCH_BATCH_SIZE: integer(20, 1),
     DISPATCH_LEASE_MS: integer(60000, 1),
 
-    OUTBOX_INTERVAL_MS: integer(2000, 1),
+    OUTBOX_POLL_INTERVAL_MS: integer(2000, 1),
     OUTBOX_BATCH_SIZE: integer(20, 1),
     OUTBOX_LEASE_MS: integer(30000, 1),
     OUTBOX_RETRY_DELAYS_MS: z.string().default('5000,30000,120000'),
@@ -187,7 +187,7 @@ const loadConfig = (environment = process.env) => {
       timeoutMs: value.EMAIL_TIMEOUT_MS,
       retryDelaysMs: Object.freeze(retryDelays),
       maxAttempts: value.EMAIL_MAX_ATTEMPTS,
-      circuitBreakerThreshold: value.EMAIL_CB_THRESHOLD,
+      circuitBreakerThreshold: value.EMAIL_CB_FAILURE_THRESHOLD,
       circuitBreakerResetMs: value.EMAIL_CB_RESET_MS,
     }),
     dispatch: Object.freeze({
@@ -196,7 +196,7 @@ const loadConfig = (environment = process.env) => {
       leaseMs: value.DISPATCH_LEASE_MS,
     }),
     outbox: Object.freeze({
-      intervalMs: value.OUTBOX_INTERVAL_MS,
+      intervalMs: value.OUTBOX_POLL_INTERVAL_MS,
       batchSize: value.OUTBOX_BATCH_SIZE,
       leaseMs: value.OUTBOX_LEASE_MS,
       retryDelaysMs: Object.freeze(outboxRetryDelays),

@@ -32,6 +32,12 @@ describe('ProcessDomainEvent', () => {
     expect(context.state.notifications.size).toBe(2);
     expect(context.state.processedEvents.size).toBe(1);
     expect(context.state.alerts.get(result.alert_id).severity).toBe(Severity.CRITICAL);
+    expect(context.state.alerts.get(result.alert_id).source_event_id).toBe(
+      eventEnvelope().event_id,
+    );
+    expect([...context.state.notifications.values()][0].source_event_id).toBe(
+      eventEnvelope().event_id,
+    );
   });
 
   test('descarta un evento duplicado sin reescribir', async () => {

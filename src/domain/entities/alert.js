@@ -24,7 +24,7 @@ class Alert {
     alert_id,
     origin,
     source_event_type = null,
-    event_id = null,
+    source_event_id = null,
     type,
     severity,
     reference_id = null,
@@ -51,7 +51,7 @@ class Alert {
     this.alert_id = alert_id;
     this.origin = origin;
     this.source_event_type = source_event_type;
-    this.event_id = event_id;
+    this.source_event_id = source_event_id;
     this.type = type;
     this.severity = severity;
     this.reference_id = reference_id;

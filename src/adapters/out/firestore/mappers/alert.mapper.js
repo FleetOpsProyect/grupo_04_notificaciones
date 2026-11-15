@@ -16,7 +16,7 @@ const toTimestamp = (value) => (value === null ? null : Timestamp.fromDate(value
 const alertToDocument = (alert) => ({
   origin: alert.origin,
   source_event_type: alert.source_event_type,
-  event_id: alert.event_id,
+  source_event_id: alert.source_event_id,
   type: alert.type,
   severity: alert.severity,
   reference_id: alert.reference_id,
@@ -31,7 +31,7 @@ const documentToAlert = (id, data) =>
     alert_id: id,
     origin: data.origin,
     source_event_type: data.source_event_type ?? null,
-    event_id: data.event_id ?? null,
+    source_event_id: data.source_event_id ?? data.event_id ?? null,
     type: data.type,
     severity: data.severity,
     reference_id: data.reference_id ?? null,

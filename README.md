@@ -4,9 +4,9 @@ Arquetipo funcional del microservicio de Notificaciones de FleetOps (Grupo 04). 
 núcleo de la Fase D sobre una arquitectura hexagonal: dominio y aplicación puros, adaptadores de
 entrada/salida y composición explícita.
 
-El alcance de esta fase **no incluye despliegue**. No hay manifiestos de Kubernetes ni pipeline de
-CD. Docker se usa para levantar LocalStack (SQS/SNS) en desarrollo y pruebas de integración. El único
-automatismo de integración es GitHub Actions para calidad.
+El arquetipo incluye integración y entrega continua: GitHub Actions valida calidad e integración
+SQS con LocalStack, publica la imagen Docker y la despliega en EC2. Docker también se usa para
+levantar LocalStack (SQS/SNS) en desarrollo y pruebas de integración.
 
 ## Requisitos
 
@@ -73,24 +73,27 @@ npm run test:integration:firestore
 npm run test:integration:all   # SQS y Firestore en secuencia
 ```
 
-Ejecute las suites en secuencia, no en paralelo. Si el servicio local sigue activo, su scheduler puede reclamar y marcar `SENT` las notificaciones `PENDING_DISPATCH` creadas por la prueba.
+Ejecute las suites en secuencia, no en paralelo. Si el servicio local sigue activo, su scheduler puede reclamar y marcar `SENT` las notificaciones `PENDING` creadas por la prueba.
 
 Variables relevantes:
 
-| Variable                       | Uso                                                  |
-| ------------------------------ | ---------------------------------------------------- |
-| `PORT`                         | Puerto HTTP, `3000` por defecto                      |
-| `FIREBASE_PROJECT_ID`          | Proyecto Firestore                                   |
-| `FIRESTORE_EMULATOR_HOST`      | Emulador local de Firestore                          |
-| `SQS_QUEUE_URL`, `SQS_DLQ_URL` | Colas FIFO del servicio                              |
-| `SQS_MAX_RECEIVE_COUNT`        | Recepciones antes de DLQ, `4` por defecto            |
-| `SNS_NOTIFICATION_TOPIC_ARN`   | Topic SNS propio para eventos `notification_*`       |
-| `EMAIL_PROVIDER`               | `console` o `resend`                                 |
-| `RESEND_API_KEY`               | Obligatoria con `EMAIL_PROVIDER=resend`              |
-| `EMAIL_FROM`                   | Remitente verificado; correo plano, sin nombre       |
-| `EMAIL_RETRY_DELAYS_MS`        | Backoff de correo, por defecto `30000,120000,600000` |
-| `DISPATCH_INTERVAL_MS`         | Frecuencia del scheduler, `10000` por defecto        |
-| `RECIPIENT_*`                  | Correos de destino por rol                           |
+| Variable                       | Uso                                                    |
+| ------------------------------ | ------------------------------------------------------ |
+| `PORT`                         | Puerto HTTP, `3000` por defecto                        |
+| `FIREBASE_PROJECT_ID`          | Proyecto Firestore                                     |
+| `FIRESTORE_EMULATOR_HOST`      | Emulador local de Firestore                            |
+| `SQS_QUEUE_URL`, `SQS_DLQ_URL` | Colas FIFO del servicio                                |
+| `SQS_MAX_RECEIVE_COUNT`        | Recepciones antes de DLQ, `4` por defecto              |
+| `SNS_NOTIFICATION_TOPIC_ARN`   | Topic SNS propio para eventos `notification_*`         |
+| `EMAIL_PROVIDER`               | `console` o `resend`                                   |
+| `RESEND_API_KEY`               | Obligatoria con `EMAIL_PROVIDER=resend`                |
+| `EMAIL_FROM`                   | Remitente verificado; correo plano, sin nombre         |
+| `EMAIL_RETRY_DELAYS_MS`        | Backoff de correo, por defecto `30000,120000,600000`   |
+| `EMAIL_CB_FAILURE_THRESHOLD`   | Fallos para abrir el Circuit Breaker, `5` por defecto  |
+| `CONSUMER_RETRY_DELAYS_MS`     | Esperas del consumidor, por defecto `2000,10000,30000` |
+| `DISPATCH_INTERVAL_MS`         | Frecuencia del scheduler, `10000` por defecto          |
+| `OUTBOX_POLL_INTERVAL_MS`      | Frecuencia del publicador Outbox, `2000` por defecto   |
+| `RECIPIENT_*`                  | Correos de destino por rol                             |
 
 ## Endpoints
 
@@ -117,7 +120,7 @@ Contrato completo: `openapi/notification-service.yaml`.
    `processed_events/{event_id}` y los `notification_created_event` en la outbox.
 4. El scheduler toma notificaciones `PENDING` vencidas, reserva con lease y envía correo.
 5. Los fallos transitorios se reprograman; los permanentes o el agotamiento de intentos dejan
-   `FAILED`. Un Circuit Breaker abierto libera la reserva y conserva `PENDING_DISPATCH`.
+   `FAILED`. Un Circuit Breaker abierto libera la reserva y conserva `PENDING`.
 6. `PUT /acknowledgement` actualiza la alerta y todas sus notificaciones a `ACKNOWLEDGED`.
 
 ## Comandos
@@ -167,7 +170,7 @@ test/
   eventos sin contrato se ignoran explícitamente.
 - La cobertura objetivo del núcleo está configurada en 90 % de líneas/funciones/statements y 85 %
   de ramas.
-- CI ejecuta lint, formato, OpenAPI y pruebas con cobertura; no levanta LocalStack ni Firestore ni publica imágenes.
+- CI ejecuta lint, formato, OpenAPI, pruebas con cobertura, integración SQS contra LocalStack y SonarCloud. El CD publica la imagen y despliega en EC2.
 - Las suites de integración se ejecutan localmente con `npm run test:integration`, `npm run test:integration:firestore` o ambas en secuencia con `npm run test:integration:all`.
 
 ## Despliegue (CD)
@@ -178,7 +181,7 @@ El CD se dispara con **push a `main`** (después del merge `develop → main`) o
 
 1. `verify`: `npm ci`, lint, formato, OpenAPI y cobertura.
 2. `build`: imagen Docker `linux/amd64` publicada en Docker Hub con tags `<sha>` y `latest`.
-3. `deploy`: copia `docker-compose.prod.yml` a `/opt/fleetops`, ejecuta `docker compose pull/up` y verifica `/health` y `/ready` desde la propia instancia. Si falla, vuelve a la imagen anterior.
+3. `deploy`: copia `docker-compose.prod.yml` a `/opt/fleetops`, ejecuta `docker-compose pull/up` y verifica `/health` y `/ready` desde la propia instancia. Si falla, vuelve a la imagen anterior.
 
 ### Secretos en GitHub
 
@@ -191,7 +194,7 @@ El CD se dispara con **push a `main`** (después del merge `develop → main`) o
 | `EC2_SSH_KEY`        | contenido del `.pem`                 |
 | `EC2_PORT`           | opcional, `22` por defecto           |
 
-El repositorio de Docker Hub es público, por lo que la EC2 no necesita `docker login`.
+El repositorio de Docker Hub es público, por lo que la EC2 no necesita `docker login`. La instancia usa el binario `docker-compose` (con guion), no el plugin `docker compose`.
 
 ### Preparar la EC2 (Amazon Linux 2023)
 
@@ -238,11 +241,17 @@ La aplicación usa el rol de instancia; **no** configure `AWS_ACCESS_KEY_ID` ni 
 
 1. Abrir PR `develop → main` y mergear.
 2. Verificar la ejecución del workflow CD.
-3. Comprobar `docker compose ps`, `/health` y `/ready` en la instancia.
+3. Comprobar `docker-compose ps`, `/health` y `/ready` en la instancia.
 4. `.current_image` guarda el tag desplegado y `.previous_image` el anterior; el CD hace rollback automático si el smoke falla.
 
 ## Documentación relacionada
 
-- Changelog vigente: `docs/changelog-arquetipo-sqs-sns.md`
-- Plan de migración: `docs/plan-cambio-kafka-a-sqs-sns.md`
-- Estado histórico de Fase D: `docs/estado-implementacion-fase-d.md`
+- Índice documental: `docs/README.md`
+- Estado actual: `docs/estado/estado-actual.md`
+- Backlog: `docs/estado/backlog.md`
+- Arquitectura vigente: `docs/arquitectura/descripcion_arquitectura_notificaciones_G04-V1.1.md`
+- DAS vigente: `docs/fuentes/G04_DAS_Notificaciones_V1.1.docx`
+- Operación y CD: `docs/operacion/estado-despliegue-cd.md`
+- Historial de cambios: `docs/historial/changelog-arquetipo-sqs-sns.md`
+- Plan de migración archivado: `docs/archive/migraciones/plan-cambio-kafka-a-sqs-sns.md`
+- Estado histórico de Fase D: `docs/archive/V1.0/estado-implementacion-fase-d.md`
