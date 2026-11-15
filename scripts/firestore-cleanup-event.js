@@ -12,8 +12,8 @@ if (eventIds.length === 0) {
     try {
       for (const eventId of eventIds) {
         const [alerts, notifications] = await Promise.all([
-          firestore.db.collection('alerts').where('event_id', '==', eventId).get(),
-          firestore.db.collection('notifications').where('event_id', '==', eventId).get(),
+          firestore.db.collection('alerts').where('source_event_id', '==', eventId).get(),
+          firestore.db.collection('notifications').where('source_event_id', '==', eventId).get(),
         ]);
         const outbox = [];
         for (const alert of alerts.docs) {

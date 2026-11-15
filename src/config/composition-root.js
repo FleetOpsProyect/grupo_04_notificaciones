@@ -66,7 +66,7 @@ const createContainer = (config) => {
   const firestore = createFirestoreClient(config);
 
   const alertRepository = createAlertFirestoreRepository(firestore.db);
-  const notificationRepository = createNotificationFirestoreRepository(firestore.db);
+  const notificationRepository = createNotificationFirestoreRepository(firestore.db, null, logger);
   const outboxEventRepository = createOutboxEventFirestoreRepository(firestore.db);
   const unitOfWork = createFirestoreUnitOfWork(firestore.db);
   const registry = createEventHandlerRegistry();

@@ -34,7 +34,7 @@ const envSchema = z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
     TZ: z.string().trim().default('America/Bogota'),
-    ENABLE_SWAGGER: boolean.default(true),
+    ENABLE_SWAGGER: boolean.default(false),
 
     FIREBASE_PROJECT_ID: z.string().trim().min(1).default('demo-fleetops'),
     GOOGLE_APPLICATION_CREDENTIALS: z.preprocess(

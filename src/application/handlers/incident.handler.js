@@ -3,18 +3,17 @@ const { Type, Severity, RecipientRole } = require('../../domain/enums');
 const { createNotificationPlan } = require('../shared/notification-plan');
 const { buildIncidentReportTemplate } = require('../templates/incident-report.template');
 const { parseEventData } = require('./event-data');
+const { identifier, optionalIdentifier, shortText, isoDate } = require('./event-fields');
 
 const incidentDataSchema = z
   .object({
-    incidente_id: z.string().min(1),
-    asignacion_id: z.string().min(1).optional(),
-    vehiculo_id: z.string().min(1),
-    conductor_id: z.string().min(1).optional(),
-    tipo_incidente: z.string().min(1),
+    incidente_id: identifier,
+    asignacion_id: optionalIdentifier,
+    vehiculo_id: identifier,
+    conductor_id: optionalIdentifier,
+    tipo_incidente: shortText,
     requiere_asistencia: z.boolean(),
-    fecha_reporte: z.string().refine((value) => !Number.isNaN(Date.parse(value)), {
-      message: 'fecha_reporte debe ser ISO 8601',
-    }),
+    fecha_reporte: isoDate('fecha_reporte debe ser ISO 8601'),
   })
   .passthrough();
 

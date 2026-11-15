@@ -64,6 +64,14 @@ describe('event handlers', () => {
     ).toThrow(InvalidDataError);
   });
 
+  test('rechaza identificadores que exceden la longitud máxima', () => {
+    expect(() =>
+      severeIncidentHandler.buildPlan(
+        eventEnvelope({ data: { ...eventEnvelope().data, incidente_id: 'x'.repeat(129) } }),
+      ),
+    ).toThrow(InvalidDataError);
+  });
+
   test('asignación interrumpida genera una notificación al empleado', () => {
     const plan = assignment.buildPlan(
       eventEnvelope({

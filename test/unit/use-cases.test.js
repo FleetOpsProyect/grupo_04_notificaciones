@@ -65,6 +65,15 @@ describe('ProcessDomainEvent', () => {
     expect(context.state.notifications.size).toBe(0);
   });
 
+  test('usa una etiqueta fija para tipos de evento no soportados', async () => {
+    const context = createTestContext();
+    await context.useCases.processDomainEvent(eventEnvelope({ event_type: 'EventoNoRegistrado' }));
+    expect(context.metrics.eventsProcessed.inc).toHaveBeenCalledWith({
+      event_type: 'unsupported',
+      result: 'IGNORED',
+    });
+  });
+
   test('revierte la transacción si los datos del evento son inválidos', async () => {
     const context = createTestContext();
     const envelope = eventEnvelope({ data: { vehiculo_id: 'VEH-1' } });

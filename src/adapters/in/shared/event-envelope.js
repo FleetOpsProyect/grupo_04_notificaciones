@@ -4,13 +4,13 @@ const { InvalidDataError } = require('../../../domain/errors');
 
 const eventEnvelopeSchema = z.object({
   event_id: z.string().uuid(),
-  event_type: z.string().min(1),
-  version: z.union([z.number(), z.string()]).optional(),
+  event_type: z.string().min(1).max(100),
+  version: z.union([z.number(), z.string().max(20)]).optional(),
   occurred_at: z.string().refine((value) => !Number.isNaN(Date.parse(value)), {
     message: 'occurred_at debe ser ISO 8601',
   }),
-  source: z.string().min(1),
-  correlation_id: z.string().min(1).optional(),
+  source: z.string().min(1).max(100),
+  correlation_id: z.string().min(1).max(100).optional(),
   data: z.object({}).passthrough(),
 });
 
