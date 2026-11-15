@@ -13,7 +13,7 @@ const toNotificationView = (notification, recipientEmail = null) => ({
   reference_id: notification.reference_id,
   origin: notification.origin,
   source_event_type: notification.source_event_type,
-  event_id: notification.event_id,
+  source_event_id: notification.source_event_id,
   correlation_id: notification.correlation_id,
   acknowledgement_status: notification.acknowledgement_status,
   acknowledged_at: formatBogotaIso(notification.acknowledged_at),

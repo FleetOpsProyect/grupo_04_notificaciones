@@ -41,7 +41,7 @@ const buildCreatedEvent = (notification, { createdAt, correlationId } = {}) =>
       recipient_role: notification.recipient_role,
       reference_id: notification.reference_id ?? null,
       origin: notification.origin,
-      source_event_id: notification.event_id ?? null,
+      source_event_id: notification.source_event_id ?? null,
       created_at: notification.created_at.toISOString(),
     },
   });

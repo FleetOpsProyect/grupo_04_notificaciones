@@ -123,11 +123,11 @@ describeFirestore('repositorios Firestore contra proyecto real', () => {
 
     const alerts = await context.db
       .collection('alerts')
-      .where('event_id', '==', envelope.event_id)
+      .where('source_event_id', '==', envelope.event_id)
       .get();
     const notifications = await context.db
       .collection('notifications')
-      .where('event_id', '==', envelope.event_id)
+      .where('source_event_id', '==', envelope.event_id)
       .get();
 
     expect(alerts.size).toBe(1);
