@@ -246,8 +246,13 @@ La aplicación usa el rol de instancia; **no** configure `AWS_ACCESS_KEY_ID` ni 
 3. Comprobar `docker-compose ps`, `/health` y `/ready` en la instancia.
 4. `.current_image` guarda el tag desplegado y `.previous_image` el anterior; el CD hace rollback automático si el smoke falla.
 
+## Contribución
+
+Las reglas de ramas, commits y pull requests están en `CONTRIBUTING.md`.
+
 ## Documentación relacionada
 
+- Guía de contribución: `CONTRIBUTING.md`
 - Índice documental: `docs/README.md`
 - Estado actual: `docs/estado/estado-actual.md`
 - Backlog: `docs/estado/backlog.md`
