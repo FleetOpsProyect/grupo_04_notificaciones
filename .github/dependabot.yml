@@ -1,0 +1,23 @@
+# Dependabot: solo alertas y actualizaciones de seguridad.
+# Las alertas se habilitan en GitHub; este archivo desactiva los PRs de
+# actualizaciones de versión para evitar ruido durante el desarrollo.
+
+version: 2
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'monthly'
+    open-pull-requests-limit: 0
+    labels:
+      - dependencies
+      - security
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'monthly'
+    open-pull-requests-limit: 0
+    labels:
+      - dependencies
+      - security
