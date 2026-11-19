@@ -6,6 +6,7 @@ const {
   TYPE_VALUES,
 } = require('../../../../domain/enums');
 const { InvalidDataError, InvalidParametersError } = require('../../../../domain/errors');
+const { isIsoDateTime } = require('../../../../application/shared/time');
 
 const manualNotificationSchema = z.object({
   type: z.enum(TYPE_VALUES),
@@ -27,7 +28,7 @@ const notificationIdSchema = z.object({
 
 const dateFilter = z
   .string()
-  .refine((value) => !Number.isNaN(Date.parse(value)), 'La fecha no es válida');
+  .refine(isIsoDateTime, 'La fecha debe ser ISO 8601 date-time con hora y offset');
 
 const MAX_LIST_OFFSET = 10000;
 

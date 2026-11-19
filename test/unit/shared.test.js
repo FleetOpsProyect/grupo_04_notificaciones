@@ -2,6 +2,7 @@ const { maskEmail, maskEmailsInText } = require('../../src/application/shared/ma
 const {
   formatBogotaIso,
   formatBogotaText,
+  isIsoDateTime,
   parseIsoDate,
 } = require('../../src/application/shared/time');
 const { createNotificationPlan } = require('../../src/application/shared/notification-plan');
@@ -53,7 +54,12 @@ describe('shared helpers', () => {
     expect(formatBogotaText(NOW)).toBe('2026-10-22 10:00:00 (GMT-5)');
     expect(formatBogotaText(null)).toBe('fecha no disponible');
     expect(parseIsoDate('2026-10-22T15:00:00Z')).toEqual(NOW);
+    expect(parseIsoDate('2026-10-22T10:00:00-05:00')).toEqual(NOW);
+    expect(parseIsoDate('2026-10-22')).toBeNull();
+    expect(parseIsoDate('2026-10-22T15:00:00')).toBeNull();
     expect(parseIsoDate('no-date')).toBeNull();
+    expect(isIsoDateTime('2026-10-22T15:00:00.123Z')).toBe(true);
+    expect(isIsoDateTime('2026-10-22')).toBe(false);
   });
 
   test('valida el plan de notificación', () => {

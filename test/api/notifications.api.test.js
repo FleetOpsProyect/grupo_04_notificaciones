@@ -111,6 +111,16 @@ describe('HTTP API de notificaciones', () => {
     const excessiveOffset = await request(app).get('/notifications?page=101&size=100');
     expect(excessiveOffset.status).toBe(400);
     expect(excessiveOffset.body.codigo).toBe('INVALID_PARAMETERS');
+
+    const dateOnly = await request(app).get('/notifications?date_from=2026-10-22');
+    expect(dateOnly.status).toBe(400);
+    expect(dateOnly.body.codigo).toBe('INVALID_PARAMETERS');
+
+    const dateTime = await request(app).get(
+      '/notifications?date_from=2026-10-01T00:00:00-05:00&date_to=2026-10-31T23:59:59-05:00',
+    );
+    expect(dateTime.status).toBe(200);
+    expect(dateTime.body.total).toBe(3);
   });
 
   test('GET por id enmascara el correo y valida el UUID', async () => {

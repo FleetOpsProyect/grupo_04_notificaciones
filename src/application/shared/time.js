@@ -1,4 +1,6 @@
 const BOGOTA_SUFFIX = '-05:00';
+const ISO_DATE_TIME_PATTERN =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 
 const bogotaFormatter = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'America/Bogota',
@@ -37,12 +39,16 @@ const formatBogotaText = (value) => {
   return `${iso.slice(0, 10)} ${iso.slice(11, 19)} (GMT-5)`;
 };
 
+const isIsoDateTime = (value) =>
+  typeof value === 'string' &&
+  ISO_DATE_TIME_PATTERN.test(value) &&
+  !Number.isNaN(Date.parse(value));
+
 const parseIsoDate = (value) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
+  if (!isIsoDateTime(value)) {
     return null;
   }
-  return date;
+  return new Date(value);
 };
 
-module.exports = { formatBogotaIso, formatBogotaText, parseIsoDate };
+module.exports = { formatBogotaIso, formatBogotaText, isIsoDateTime, parseIsoDate };

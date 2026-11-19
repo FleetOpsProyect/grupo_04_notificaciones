@@ -79,14 +79,18 @@ paths:
             maxLength: 50
         - name: date_from
           in: query
+          description: 'ISO 8601 date-time con fecha, hora y offset, por ejemplo 2026-10-20T09:30:02-05:00.'
           schema:
             type: string
             format: date-time
+            example: '2026-10-20T09:30:02-05:00'
         - name: date_to
           in: query
+          description: 'ISO 8601 date-time con fecha, hora y offset, por ejemplo 2026-10-20T09:30:02-05:00.'
           schema:
             type: string
             format: date-time
+            example: '2026-10-20T09:30:02-05:00'
         - name: page
           in: query
           description: 'La página debe cumplir page * size <= 10000.'
