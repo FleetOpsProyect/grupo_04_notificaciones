@@ -30,7 +30,8 @@ const buildPlan = (envelope) => {
     documentId: data.document_id,
     documentType: data.document_type,
     ownerType: data.owner_type,
-    thresholdDays: data.threshold_days,
+    ownerId: data.owner_id,
+    expirationDate: data.expiration_date,
   });
   return createNotificationPlan({
     alert: {

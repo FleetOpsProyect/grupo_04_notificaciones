@@ -84,6 +84,7 @@ Variables relevantes:
 | `FIRESTORE_EMULATOR_HOST`      | Emulador local de Firestore                            |
 | `SQS_QUEUE_URL`, `SQS_DLQ_URL` | Colas FIFO del servicio                                |
 | `SQS_MAX_RECEIVE_COUNT`        | Recepciones antes de DLQ, `4` por defecto              |
+| `EVENT_SOURCE_ALLOWLIST`       | Allowlist opcional de `source`; vacía = deshabilitada  |
 | `SNS_NOTIFICATION_TOPIC_ARN`   | Topic SNS propio para eventos `notification_*`         |
 | `EMAIL_PROVIDER`               | `console` o `resend`                                   |
 | `RESEND_API_KEY`               | Obligatoria con `EMAIL_PROVIDER=resend`                |

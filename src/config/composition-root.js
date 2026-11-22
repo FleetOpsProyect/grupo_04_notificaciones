@@ -167,6 +167,7 @@ const createContainer = (config) => {
     deadLetterPublisher,
     logger,
     metrics,
+    sourceAllowlist: config.sqs.sourceAllowlist,
   });
 
   const publishOutboxEvents = createPublishOutboxEventsUseCase({

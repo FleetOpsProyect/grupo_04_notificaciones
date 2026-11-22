@@ -9,6 +9,7 @@ describe('configuración', () => {
     expect(config.email.retryDelaysMs).toEqual([30000, 120000, 600000]);
     expect(config.sqs.consumerRetryDelaysMs).toEqual([2000, 10000, 30000]);
     expect(config.sqs.maxReceiveCount).toBe(4);
+    expect(config.sqs.sourceAllowlist).toEqual([]);
     expect(config.sqs.queueUrl).toBeNull();
     expect(config.recipients.MANAGEMENT).toBe('gerencia@example.invalid');
     expect(config.enableSwagger).toBe(false);
@@ -20,6 +21,11 @@ describe('configuración', () => {
     );
     const config = loadConfig({ EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_test' });
     expect(config.email.apiKey).toBe('re_test');
+  });
+
+  test('normaliza la allowlist de source', () => {
+    const config = loadConfig({ EVENT_SOURCE_ALLOWLIST: ' Incident , Fuel ,, ' });
+    expect(config.sqs.sourceAllowlist).toEqual(['incident', 'fuel']);
   });
 
   test('rechaza retardos inválidos', () => {
@@ -88,5 +94,14 @@ describe('sobre de evento estándar', () => {
         attributeEventType: 'minor_incident_reported_event',
       }),
     ).toThrow('no coincide');
+  });
+
+  test('aplica la allowlist de source solo cuando tiene valores', () => {
+    const body = Buffer.from(JSON.stringify(validEnvelope));
+    expect(() => parseEventEnvelope(body, { sourceAllowlist: [] })).not.toThrow();
+    expect(() => parseEventEnvelope(body, { sourceAllowlist: ['INCIDENT-SERVICE'] })).not.toThrow();
+    expect(() => parseEventEnvelope(body, { sourceAllowlist: ['fuel'] })).toThrow(
+      'source no está permitido',
+    );
   });
 });

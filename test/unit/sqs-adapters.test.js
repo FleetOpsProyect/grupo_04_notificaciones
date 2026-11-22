@@ -65,6 +65,20 @@ describe('Adaptador de entrada SQS', () => {
     expect(() => mapSqsMessageToEnvelope({})).toThrow('Mensaje SQS sin Body');
   });
 
+  test('propaga la allowlist de source al sobre', () => {
+    const envelope = buildEnvelope({ source: 'fuel' });
+    expect(() =>
+      mapSqsMessageToEnvelope(
+        { Body: JSON.stringify(envelope) },
+        { sourceAllowlist: ['incident'] },
+      ),
+    ).toThrow('source no está permitido');
+    expect(
+      mapSqsMessageToEnvelope({ Body: JSON.stringify(envelope) }, { sourceAllowlist: ['FUEL'] })
+        .event_id,
+    ).toBe(envelope.event_id);
+  });
+
   test('valida el message attribute event_type', () => {
     const envelope = buildEnvelope();
     expect(() =>

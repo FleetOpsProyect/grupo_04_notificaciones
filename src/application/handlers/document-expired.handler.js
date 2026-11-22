@@ -27,6 +27,7 @@ const buildPlan = (envelope) => {
     documentId: data.document_id,
     documentType: data.document_type,
     ownerType: data.owner_type,
+    ownerId: data.owner_id,
     expirationDate: data.expiration_date,
   });
   return createNotificationPlan({

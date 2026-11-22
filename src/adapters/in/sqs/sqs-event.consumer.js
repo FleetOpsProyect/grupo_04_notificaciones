@@ -31,6 +31,7 @@ const createMessageHandler = ({
   deadLetterPublisher,
   logger,
   metrics,
+  sourceAllowlist = [],
 }) => {
   const retryDelaysMs = sqsConfig.consumerRetryDelaysMs ?? DEFAULT_RETRY_DELAYS_MS;
   const maxReceiveCount = sqsConfig.maxReceiveCount ?? DEFAULT_MAX_RECEIVE_COUNT;
@@ -84,7 +85,7 @@ const createMessageHandler = ({
 
     let envelope;
     try {
-      envelope = mapSqsMessageToEnvelope(message);
+      envelope = mapSqsMessageToEnvelope(message, { sourceAllowlist });
     } catch (error) {
       await handlePermanentFailure({
         originalMessage: message,
@@ -150,6 +151,7 @@ const createSqsEventConsumer = ({
   deadLetterPublisher,
   logger,
   metrics,
+  sourceAllowlist = [],
 }) => {
   let running = false;
   let pollPromise = null;
@@ -162,6 +164,7 @@ const createSqsEventConsumer = ({
     deadLetterPublisher,
     logger,
     metrics,
+    sourceAllowlist,
   });
 
   const poll = async () => {

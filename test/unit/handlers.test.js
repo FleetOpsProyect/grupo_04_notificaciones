@@ -98,6 +98,7 @@ describe('event handlers', () => {
       recipient_email: 'empleado@example.com',
       reference_id: 'ASG-1',
     });
+    expect(plan.notifications[0].message).toContain('ASG-1');
     expect(plan.notifications[0].message).toContain('ASG-2');
   });
 
@@ -144,6 +145,8 @@ describe('event handlers', () => {
             document_id: 'DOC-1',
             document_type: 'SOAT',
             owner_type: 'VEHICLE',
+            owner_id: 'VEH-1',
+            expiration_date: '2026-11-25',
             days_remaining: days,
             threshold_days: 30,
           },
@@ -152,7 +155,9 @@ describe('event handlers', () => {
       expect(plan.alert.severity).toBe(Severity.WARNING);
       expect(plan.notifications).toHaveLength(1);
       expect(plan.notifications[0].recipient_role).toBe('FLEET_ADMINISTRATOR');
-      expect(plan.notifications[0].message).toContain('Días restantes');
+      expect(plan.notifications[0].message).toContain('SOAT (DOC-1)');
+      expect(plan.notifications[0].message).toContain('vehículo VEH-1');
+      expect(plan.notifications[0].message).toContain('2026-11-25');
     }
   });
 
@@ -171,11 +176,19 @@ describe('event handlers', () => {
     const full = documentExpired.buildPlan(
       eventEnvelope({
         event_type: 'document_expired_event',
-        data: { document_id: 'DOC-1', document_type: 'SOAT', owner_type: 'VEHICLE' },
+        data: {
+          document_id: 'DOC-1',
+          document_type: 'SOAT',
+          owner_type: 'VEHICLE',
+          owner_id: 'VEH-1',
+          expiration_date: '2026-10-20',
+        },
       }),
     );
     expect(full.alert.severity).toBe(Severity.CRITICAL);
     expect(full.alert.reference_id).toBe('DOC-1');
+    expect(full.notifications[0].message).toContain('vehículo VEH-1');
+    expect(full.notifications[0].message).toContain('2026-10-20');
     expect(() =>
       documentExpired.buildPlan(eventEnvelope({ event_type: 'document_expired_event', data: {} })),
     ).toThrow(InvalidDataError);
@@ -312,5 +325,16 @@ describe('event handler registry', () => {
     for (const eventType of IGNORED_EVENT_TYPES) {
       expect(registry.resolve(eventType)).toBeNull();
     }
+    expect(IGNORED_EVENT_TYPES).toEqual(
+      expect.arrayContaining([
+        'assignment_created_event',
+        'vehicle_status_changed_event',
+        'maintenance_completed_event',
+        'driver_activated_event',
+        'vehicle_odometer_updated_event',
+      ]),
+    );
+    expect(IGNORED_EVENT_TYPES).not.toContain('modified_assignment_event');
+    expect(IGNORED_EVENT_TYPES).not.toContain('MantenimientoFinalizadoEvent');
   });
 });

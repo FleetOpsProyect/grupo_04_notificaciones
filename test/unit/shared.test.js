@@ -142,36 +142,54 @@ describe('templates', () => {
 
   test('asignación interrumpida cubre los resultados', () => {
     expect(
-      buildAssignmentInterruptedTemplate({ reassignmentResult: 'MANUAL_REQUIRED' }).message,
-    ).toContain('gestión manual');
+      buildAssignmentInterruptedTemplate({
+        assignmentId: 'ASG-1',
+        incidentId: 'INC-1',
+        reassignmentResult: 'MANUAL_REQUIRED',
+      }).message,
+    ).toContain('Debes crear una nueva solicitud de vehículo');
     expect(
-      buildAssignmentInterruptedTemplate({ reassignmentResult: 'AUTOMATIC_FAILED' }).message,
-    ).toContain('reasignación automática falló');
+      buildAssignmentInterruptedTemplate({
+        assignmentId: 'ASG-1',
+        incidentId: 'INC-1',
+        reassignmentResult: 'AUTOMATIC_FAILED',
+      }).message,
+    ).toContain('No fue posible reasignarte un vehículo');
     expect(
-      buildAssignmentInterruptedTemplate({ reassignmentResult: 'AUTOMATIC_SUCCESSFUL' }).message,
-    ).toContain('vehículo asignado');
+      buildAssignmentInterruptedTemplate({
+        assignmentId: 'ASG-1',
+        incidentId: 'INC-1',
+        reassignmentResult: 'AUTOMATIC_SUCCESSFUL',
+      }).message,
+    ).toContain('vehículo nuevo asignado');
     expect(buildAssignmentInterruptedTemplate({}).message).toContain('pendiente');
   });
 
-  test('documentos próximos y vencidos', () => {
+  test('documentos próximos y vencidos usan el contrato v8', () => {
     const expiring = buildDocumentExpiringTemplate({
       daysRemaining: 15,
       documentId: 'DOC-1',
       documentType: 'SOAT',
       ownerType: 'VEHICLE',
-      thresholdDays: 30,
+      ownerId: 'VEH-1',
+      expirationDate: '2026-11-25',
     });
-    expect(expiring.subject).toContain('15 días');
+    expect(expiring.subject).toContain('SOAT de VEH-1');
     expect(expiring.message).toContain('DOC-1');
-    expect(expiring.message).toContain('VEHICLE');
+    expect(expiring.message).toContain('vehículo VEH-1');
+    expect(expiring.message).toContain('2026-11-25');
     const expired = buildDocumentExpiredTemplate({
       documentId: 'DOC-1',
       documentType: 'SOAT',
       ownerType: 'VEHICLE',
+      ownerId: 'VEH-1',
+      expirationDate: '2026-10-20',
     });
+    expect(expired.subject).toContain('Documento VENCIDO');
     expect(expired.message).toContain('DOC-1');
-    expect(expired.message).toContain('VEHICLE');
-    expect(buildDocumentExpiredTemplate({}).message).not.toContain('Tipo de propietario');
+    expect(expired.message).toContain('vehículo VEH-1');
+    expect(expired.message).toContain('2026-10-20');
+    expect(buildDocumentExpiredTemplate({}).message).toContain('fecha no disponible');
   });
 
   test('mantenimiento formatea kilómetros y usa el contrato v8', () => {

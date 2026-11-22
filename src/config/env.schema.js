@@ -72,6 +72,7 @@ const envSchema = z
     SQS_MAX_NUMBER_OF_MESSAGES: integer(10, 1),
     SQS_VISIBILITY_TIMEOUT_SECONDS: integer(30, 1),
     SQS_MAX_RECEIVE_COUNT: integer(4, 1),
+    EVENT_SOURCE_ALLOWLIST: z.string().trim().default(''),
 
     SNS_NOTIFICATION_TOPIC_ARN: z.preprocess(
       (value) => (value === '' ? undefined : value),
@@ -135,6 +136,7 @@ const loadConfig = (environment = process.env) => {
   const retryDelays = csv(value.EMAIL_RETRY_DELAYS_MS).map(Number);
   const consumerRetryDelays = csv(value.CONSUMER_RETRY_DELAYS_MS).map(Number);
   const outboxRetryDelays = csv(value.OUTBOX_RETRY_DELAYS_MS).map(Number);
+  const sourceAllowlist = csv(value.EVENT_SOURCE_ALLOWLIST).map((item) => item.toLowerCase());
   if (retryDelays.some((item) => !Number.isFinite(item) || item < 0)) {
     throw new Error('EMAIL_RETRY_DELAYS_MS contiene valores inválidos');
   }
@@ -171,6 +173,7 @@ const loadConfig = (environment = process.env) => {
       visibilityTimeoutSeconds: value.SQS_VISIBILITY_TIMEOUT_SECONDS,
       maxReceiveCount: value.SQS_MAX_RECEIVE_COUNT,
       consumerRetryDelaysMs: Object.freeze(consumerRetryDelays),
+      sourceAllowlist: Object.freeze(sourceAllowlist),
     }),
     sns: Object.freeze({
       notificationTopicArn: value.SNS_NOTIFICATION_TOPIC_ARN ?? null,

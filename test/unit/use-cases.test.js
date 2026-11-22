@@ -179,7 +179,7 @@ describe('consultas', () => {
     );
     const result = await context.useCases.getNotification(processed.notification_ids[0]);
     expect(result.recipient_email).toBe('e***@example.com');
-    expect(result.message).toContain('gestión manual');
+    expect(result.message).toContain('nueva solicitud de vehículo');
   });
 
   test('falla cuando la notificación no existe', async () => {

@@ -30,6 +30,8 @@ const buildPlan = (envelope) => {
   const severity =
     data.reassignment_result === 'AUTOMATIC_SUCCESSFUL' ? Severity.INFO : Severity.WARNING;
   const template = buildAssignmentInterruptedTemplate({
+    assignmentId: data.assignment_id,
+    incidentId: data.incident_id,
     reassignmentResult: data.reassignment_result,
     newAssignmentId: data.new_assignment_id,
   });
