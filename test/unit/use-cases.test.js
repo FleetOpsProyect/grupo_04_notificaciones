@@ -76,7 +76,7 @@ describe('ProcessDomainEvent', () => {
 
   test('revierte la transacción si los datos del evento son inválidos', async () => {
     const context = createTestContext();
-    const envelope = eventEnvelope({ data: { vehiculo_id: 'VEH-1' } });
+    const envelope = eventEnvelope({ data: { vehicle_id: 'VEH-1' } });
     await expect(context.useCases.processDomainEvent(envelope)).rejects.toBeInstanceOf(
       InvalidDataError,
     );

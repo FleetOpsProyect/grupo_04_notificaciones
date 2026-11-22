@@ -12,7 +12,7 @@ const buildEnvelope = (overrides = {}) => ({
   occurred_at: '2026-10-28T10:00:00-05:00',
   source: 'incidentes',
   correlation_id: randomUUID(),
-  data: { incidente_id: 'inc-1' },
+  data: { incident_id: 'inc-1' },
   ...overrides,
 });
 

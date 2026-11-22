@@ -40,7 +40,7 @@ describe('sobre de evento estándar', () => {
     occurred_at: '2026-10-22T14:55:00.000Z',
     source: 'incident-service',
     correlation_id: '22222222-2222-4222-8222-222222222222',
-    data: { incidente_id: 'INC-1' },
+    data: { incident_id: 'INC-1' },
     desconocido: 'ignorado',
   };
 

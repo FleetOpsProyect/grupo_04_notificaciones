@@ -8,7 +8,7 @@ const validEnvelope = {
   occurred_at: '2026-10-28T10:00:00-05:00',
   source: 'incident-service',
   correlation_id: '22222222-2222-4222-8222-222222222222',
-  data: { incidente_id: 'inc-1' },
+  data: { incident_id: 'inc-1' },
 };
 
 const buildMessage = (overrides = {}) => ({

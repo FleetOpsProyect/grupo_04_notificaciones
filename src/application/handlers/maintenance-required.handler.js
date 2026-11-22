@@ -3,28 +3,34 @@ const { Type, Severity, RecipientRole } = require('../../domain/enums');
 const { createNotificationPlan } = require('../shared/notification-plan');
 const { buildMaintenanceRequiredTemplate } = require('../templates/maintenance-required.template');
 const { parseEventData } = require('./event-data');
-const { optionalIdentifier, optionalMediumText } = require('./event-fields');
+const { identifier } = require('./event-fields');
 
-const eventType = 'MantenimientoPreventivoRequeridoEvent';
+const eventType = 'preventive_maintenance_required_event';
 const maintenanceSchema = z
   .object({
-    mantenimiento_id: optionalIdentifier,
-    vehiculo_id: optionalIdentifier,
-    kilometraje_actual: z.coerce.number().nonnegative().optional(),
-    umbral_km: z.coerce.number().nonnegative().optional(),
-    motivo: optionalMediumText,
+    maintenance_order_id: identifier,
+    vehicle_id: identifier,
+    current_mileage: z.coerce.number().int().nonnegative(),
+    threshold_km: z.coerce.number().int().positive(),
+    trigger_reason: z.string().trim().min(1).max(100),
   })
   .passthrough();
 
+const TRIGGER_REASON_LABELS = Object.freeze({
+  MILEAGE_EXCEEDED: 'Kilometraje excedido',
+});
+
+const describeTriggerReason = (triggerReason) =>
+  TRIGGER_REASON_LABELS[triggerReason] ?? triggerReason;
+
 const buildPlan = (envelope) => {
   const data = parseEventData(maintenanceSchema, envelope.data, eventType);
-  const referenceId = data.mantenimiento_id ?? null;
   const template = buildMaintenanceRequiredTemplate({
-    kilometrajeActual: data.kilometraje_actual,
-    umbralKm: data.umbral_km,
-    motivo: data.motivo,
-    vehiculoId: data.vehiculo_id,
-    mantenimientoId: data.mantenimiento_id,
+    currentMileage: data.current_mileage,
+    thresholdKm: data.threshold_km,
+    triggerReason: describeTriggerReason(data.trigger_reason),
+    vehicleId: data.vehicle_id,
+    maintenanceOrderId: data.maintenance_order_id,
   });
   return createNotificationPlan({
     alert: {
@@ -32,7 +38,7 @@ const buildPlan = (envelope) => {
       event_id: envelope.event_id,
       type: Type.MAINTENANCE,
       severity: Severity.WARNING,
-      reference_id: referenceId,
+      reference_id: data.maintenance_order_id,
     },
     notifications: [RecipientRole.FLEET_ADMINISTRATOR, RecipientRole.MAINTENANCE_TECHNICIAN].map(
       (role) => ({
@@ -40,10 +46,16 @@ const buildPlan = (envelope) => {
         recipient_email: null,
         subject: template.subject,
         message: template.message,
-        reference_id: referenceId,
+        reference_id: data.maintenance_order_id,
       }),
     ),
   });
 };
 
-module.exports = { eventType, buildPlan, maintenanceSchema };
+module.exports = {
+  eventType,
+  buildPlan,
+  maintenanceSchema,
+  TRIGGER_REASON_LABELS,
+  describeTriggerReason,
+};

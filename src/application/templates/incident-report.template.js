@@ -2,31 +2,25 @@ const { formatBogotaText } = require('../shared/time');
 
 const buildIncidentReportTemplate = ({
   kind = 'SEVERE',
-  requiereAsistencia,
-  vehiculoId,
-  incidenteId,
-  asignacionId,
-  conductorId,
-  tipoIncidente,
-  fechaReporte,
+  vehicleId,
+  incidentId,
+  assignmentId,
+  driverId,
+  description,
+  reportedAt,
 }) => {
-  const prefix = requiereAsistencia ? '[URGENTE] ' : '';
-  const label = kind === 'MINOR' ? 'Incidente leve reportado' : 'Incidente reportado';
-  const subject = `${prefix}[FleetOps] ${label} en el vehículo ${vehiculoId}`;
+  const isMinor = kind === 'MINOR';
+  const label = isMinor ? 'Incidente leve' : 'Incidente grave';
+  const prefix = isMinor ? '' : '[URGENTE] ';
+  const subject = `${prefix}[FleetOps] ${label} en el vehículo ${vehicleId}`;
+  const descriptionLine = /[.!?]$/.test(description) ? description : `${description}.`;
   const lines = [
-    `Se reportó un ${kind === 'MINOR' ? 'incidente leve' : 'incidente'} en el vehículo ${vehiculoId}.`,
-    `Incidente: ${incidenteId}`,
-    `Tipo: ${tipoIncidente}`,
-    `Fecha del reporte: ${formatBogotaText(fechaReporte)}`,
+    `Incidente ${isMinor ? 'leve' : 'grave'} ${incidentId} reportado en el vehículo ${vehicleId} (asignación ${assignmentId}, conductor ${driverId}).`,
+    descriptionLine,
+    `Fecha: ${formatBogotaText(reportedAt)}.`,
   ];
-  if (asignacionId) {
-    lines.push(`Asignación: ${asignacionId}`);
-  }
-  if (conductorId) {
-    lines.push(`Conductor: ${conductorId}`);
-  }
-  if (requiereAsistencia) {
-    lines.push('', 'REQUIERE ASISTENCIA INMEDIATA');
+  if (!isMinor) {
+    lines.push('Atender de inmediato.');
   }
   return { subject, message: lines.join('\n') };
 };

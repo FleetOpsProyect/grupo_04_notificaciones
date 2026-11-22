@@ -181,7 +181,7 @@ describe('Email sender resiliente', () => {
     expect(logged).not.toContain('admin@example.com');
     expect(logged).not.toContain('tecnico@example.com');
     expect(logged).not.toContain('gerencia@example.com');
-    expect(logged).not.toContain('REQUIERE ASISTENCIA INMEDIATA');
+    expect(logged).not.toContain('Atender de inmediato');
   });
 
   test('el proveedor de consola enmascara el destinatario y no registra el cuerpo', async () => {

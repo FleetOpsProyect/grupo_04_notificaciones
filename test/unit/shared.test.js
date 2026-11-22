@@ -110,30 +110,34 @@ describe('shared helpers', () => {
 });
 
 describe('templates', () => {
-  test('incidente con y sin datos opcionales', () => {
+  test('incidente grave y leve con el contrato v8', () => {
     const full = buildIncidentReportTemplate({
       kind: 'SEVERE',
-      requiereAsistencia: true,
-      vehiculoId: 'VEH-1',
-      incidenteId: 'INC-1',
-      asignacionId: 'ASI-1',
-      conductorId: 'CON-1',
-      tipoIncidente: 'Choque',
-      fechaReporte: NOW,
+      vehicleId: 'VEH-1',
+      incidentId: 'INC-1',
+      assignmentId: 'ASI-1',
+      driverId: 'CON-1',
+      description: 'Choque',
+      reportedAt: NOW,
     });
     expect(full.subject).toContain('[URGENTE]');
-    expect(full.message).toContain('Asignación: ASI-1');
-    expect(full.message).toContain('REQUIERE ASISTENCIA INMEDIATA');
+    expect(full.subject).toContain('Incidente grave');
+    expect(full.message).toContain('asignación ASI-1');
+    expect(full.message).toContain('conductor CON-1');
+    expect(full.message).toContain('Atender de inmediato');
     const minimal = buildIncidentReportTemplate({
       kind: 'MINOR',
-      requiereAsistencia: false,
-      vehiculoId: 'VEH-1',
-      incidenteId: 'INC-1',
-      tipoIncidente: 'Falla',
-      fechaReporte: 'no-date',
+      vehicleId: 'VEH-1',
+      incidentId: 'INC-1',
+      assignmentId: 'ASI-1',
+      driverId: 'CON-1',
+      description: 'Falla',
+      reportedAt: 'no-date',
     });
     expect(minimal.subject).not.toContain('[URGENTE]');
+    expect(minimal.subject).toContain('Incidente leve');
     expect(minimal.message).toContain('fecha no disponible');
+    expect(minimal.message).not.toContain('Atender de inmediato');
   });
 
   test('asignación interrumpida cubre los resultados', () => {
@@ -170,19 +174,21 @@ describe('templates', () => {
     expect(buildDocumentExpiredTemplate({}).message).not.toContain('Tipo de propietario');
   });
 
-  test('mantenimiento formatea kilómetros y omite datos', () => {
+  test('mantenimiento formatea kilómetros y usa el contrato v8', () => {
     expect(formatKilometers(12345.6)).toBe('12.346');
     expect(formatKilometers(Number.NaN)).toBeNull();
     const full = buildMaintenanceRequiredTemplate({
-      kilometrajeActual: 12345,
-      vehiculoId: 'VEH-1',
-      mantenimientoId: 'MAN-1',
+      currentMileage: 12345,
+      thresholdKm: 15000,
+      triggerReason: 'Kilometraje excedido',
+      vehicleId: 'VEH-1',
+      maintenanceOrderId: 'MAN-1',
     });
     expect(full.subject).toContain('VEH-1');
     expect(full.message).toContain('Kilometraje actual: 12.345 km');
-    const minimal = buildMaintenanceRequiredTemplate({});
-    expect(minimal.subject).not.toContain(' para ');
-    expect(minimal.message).not.toContain('Kilometraje actual');
+    expect(full.message).toContain('umbral: 15.000 km');
+    expect(full.message).toContain('Motivo: Kilometraje excedido');
+    expect(full.message).toContain('Orden: MAN-1');
   });
 
   test('notificación manual con referencia opcional', () => {
