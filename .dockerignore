@@ -7,7 +7,6 @@ node_modules
 coverage
 docs
 test
-scripts
 silence
 docker-compose*.yml
 Dockerfile
