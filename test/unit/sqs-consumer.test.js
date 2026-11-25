@@ -8,7 +8,7 @@ const validEnvelope = {
   occurred_at: '2026-10-28T10:00:00-05:00',
   source: 'incident-service',
   correlation_id: '22222222-2222-4222-8222-222222222222',
-  data: { incidente_id: 'inc-1' },
+  data: { incident_id: 'inc-1' },
 };
 
 const buildMessage = (overrides = {}) => ({
@@ -22,7 +22,12 @@ const buildMessage = (overrides = {}) => ({
   ...overrides,
 });
 
-const buildHarness = ({ processDomainEvent, receiveCount = 1, overrides = {} } = {}) => {
+const buildHarness = ({
+  processDomainEvent,
+  receiveCount = 1,
+  overrides = {},
+  sourceAllowlist = [],
+} = {}) => {
   const sqsClient = { send: jest.fn().mockResolvedValue({}) };
   const deadLetterPublisher = { publish: jest.fn().mockResolvedValue() };
   const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
@@ -35,6 +40,7 @@ const buildHarness = ({ processDomainEvent, receiveCount = 1, overrides = {} } =
     deadLetterPublisher,
     logger,
     metrics,
+    sourceAllowlist,
   });
   const message = buildMessage({
     Attributes: { ApproximateReceiveCount: String(receiveCount), MessageGroupId: 'group-1' },
@@ -55,6 +61,21 @@ describe('consumidor SQS', () => {
     expect(commandsOf(sqsClient, 'DeleteMessageCommand')).toHaveLength(1);
     expect(commandsOf(sqsClient, 'ChangeMessageVisibilityCommand')).toHaveLength(0);
     expect(deadLetterPublisher.publish).not.toHaveBeenCalled();
+  });
+
+  test('envía a DLQ un source no permitido y borra el mensaje', async () => {
+    const { handler, message, sqsClient, deadLetterPublisher } = buildHarness({
+      sourceAllowlist: ['fuel'],
+    });
+
+    await handler(message);
+
+    expect(deadLetterPublisher.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: 'INVALID_ENVELOPE',
+      }),
+    );
+    expect(commandsOf(sqsClient, 'DeleteMessageCommand')).toHaveLength(1);
   });
 
   test('envía a DLQ un sobre inválido y borra el mensaje', async () => {

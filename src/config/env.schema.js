@@ -34,7 +34,7 @@ const envSchema = z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
     TZ: z.string().trim().default('America/Bogota'),
-    ENABLE_SWAGGER: boolean.default(true),
+    ENABLE_SWAGGER: boolean.default(false),
 
     FIREBASE_PROJECT_ID: z.string().trim().min(1).default('demo-fleetops'),
     GOOGLE_APPLICATION_CREDENTIALS: z.preprocess(
@@ -72,19 +72,29 @@ const envSchema = z
     SQS_MAX_NUMBER_OF_MESSAGES: integer(10, 1),
     SQS_VISIBILITY_TIMEOUT_SECONDS: integer(30, 1),
     SQS_MAX_RECEIVE_COUNT: integer(4, 1),
+    EVENT_SOURCE_ALLOWLIST: z.string().trim().default(''),
 
     SNS_NOTIFICATION_TOPIC_ARN: z.preprocess(
       (value) => (value === '' ? undefined : value),
       z.string().trim().optional(),
     ),
 
-    EMAIL_PROVIDER: z.enum(['console', 'resend']).default('console'),
-    RESEND_API_KEY: z.preprocess(
+    EMAIL_PROVIDER: z.enum(['console', 'smtp']).default('console'),
+    SMTP_HOST: z.string().trim().default('smtp.gmail.com'),
+    SMTP_PORT: integer(587, 1),
+    SMTP_SECURE: boolean.default(false),
+    SMTP_REQUIRE_TLS: boolean.default(true),
+    SMTP_USER: z.preprocess(
       (value) => (value === '' ? undefined : value),
       z.string().trim().optional(),
     ),
+    SMTP_PASSWORD: z.preprocess(
+      (value) =>
+        value === undefined || value === '' ? undefined : String(value).replace(/\s+/g, ''),
+      z.string().optional(),
+    ),
     EMAIL_FROM: email.default('notificaciones@example.invalid'),
-    EMAIL_TIMEOUT_MS: integer(5000, 1),
+    EMAIL_TIMEOUT_MS: integer(10000, 1),
     EMAIL_RETRY_DELAYS_MS: z.string().default('30000,120000,600000'),
     EMAIL_MAX_ATTEMPTS: integer(4, 1),
     EMAIL_CB_FAILURE_THRESHOLD: integer(5, 1),
@@ -109,11 +119,11 @@ const envSchema = z
     SHUTDOWN_TIMEOUT_MS: integer(10000, 1),
   })
   .superRefine((value, context) => {
-    if (value.EMAIL_PROVIDER === 'resend' && !value.RESEND_API_KEY) {
+    if (value.EMAIL_PROVIDER === 'smtp' && (!value.SMTP_USER || !value.SMTP_PASSWORD)) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ['RESEND_API_KEY'],
-        message: 'RESEND_API_KEY es obligatoria cuando EMAIL_PROVIDER=resend',
+        path: ['SMTP_USER'],
+        message: 'SMTP_USER y SMTP_PASSWORD son obligatorias cuando EMAIL_PROVIDER=smtp',
       });
     }
   });
@@ -135,6 +145,7 @@ const loadConfig = (environment = process.env) => {
   const retryDelays = csv(value.EMAIL_RETRY_DELAYS_MS).map(Number);
   const consumerRetryDelays = csv(value.CONSUMER_RETRY_DELAYS_MS).map(Number);
   const outboxRetryDelays = csv(value.OUTBOX_RETRY_DELAYS_MS).map(Number);
+  const sourceAllowlist = csv(value.EVENT_SOURCE_ALLOWLIST).map((item) => item.toLowerCase());
   if (retryDelays.some((item) => !Number.isFinite(item) || item < 0)) {
     throw new Error('EMAIL_RETRY_DELAYS_MS contiene valores inválidos');
   }
@@ -171,6 +182,7 @@ const loadConfig = (environment = process.env) => {
       visibilityTimeoutSeconds: value.SQS_VISIBILITY_TIMEOUT_SECONDS,
       maxReceiveCount: value.SQS_MAX_RECEIVE_COUNT,
       consumerRetryDelaysMs: Object.freeze(consumerRetryDelays),
+      sourceAllowlist: Object.freeze(sourceAllowlist),
     }),
     sns: Object.freeze({
       notificationTopicArn: value.SNS_NOTIFICATION_TOPIC_ARN ?? null,
@@ -182,7 +194,14 @@ const loadConfig = (environment = process.env) => {
     }),
     email: Object.freeze({
       provider: value.EMAIL_PROVIDER,
-      apiKey: value.RESEND_API_KEY ?? null,
+      smtp: Object.freeze({
+        host: value.SMTP_HOST,
+        port: value.SMTP_PORT,
+        secure: value.SMTP_SECURE,
+        requireTls: value.SMTP_REQUIRE_TLS,
+        user: value.SMTP_USER ?? null,
+        password: value.SMTP_PASSWORD ?? null,
+      }),
       from: value.EMAIL_FROM,
       timeoutMs: value.EMAIL_TIMEOUT_MS,
       retryDelaysMs: Object.freeze(retryDelays),

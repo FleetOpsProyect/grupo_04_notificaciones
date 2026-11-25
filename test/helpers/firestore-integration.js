@@ -151,11 +151,13 @@ const createFirestoreIntegrationContext = () => {
     source: 'incident-service',
     correlation_id: randomUUID(),
     data: {
-      incidente_id: `INC-${runId}`,
-      vehiculo_id: 'VEH-IT',
-      tipo_incidente: 'Choque',
-      requiere_asistencia: true,
-      fecha_reporte: new Date().toISOString(),
+      incident_id: `INC-${runId}`,
+      assignment_id: 'ASG-IT',
+      vehicle_id: 'VEH-IT',
+      driver_id: 'DRV-IT',
+      severity: 'severe',
+      description: 'Choque',
+      reported_at: new Date().toISOString(),
     },
     ...overrides,
   });

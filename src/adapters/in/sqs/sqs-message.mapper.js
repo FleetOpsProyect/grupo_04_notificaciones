@@ -5,7 +5,7 @@ const readSqsAttribute = (message, name) => {
   return attribute?.StringValue ?? attribute?.BinaryValue ?? null;
 };
 
-const mapSqsMessageToEnvelope = (message) => {
+const mapSqsMessageToEnvelope = (message, { sourceAllowlist = [] } = {}) => {
   if (!message) {
     throw new Error('Mensaje SQS inválido');
   }
@@ -31,7 +31,7 @@ const mapSqsMessageToEnvelope = (message) => {
     // Si no es JSON, parseEventEnvelope reportará el error correspondiente.
   }
 
-  return parseEventEnvelope(payloadToParse, { attributeEventType });
+  return parseEventEnvelope(payloadToParse, { attributeEventType, sourceAllowlist });
 };
 
 module.exports = { mapSqsMessageToEnvelope };

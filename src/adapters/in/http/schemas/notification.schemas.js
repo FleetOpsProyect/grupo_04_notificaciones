@@ -6,6 +6,7 @@ const {
   TYPE_VALUES,
 } = require('../../../../domain/enums');
 const { InvalidDataError, InvalidParametersError } = require('../../../../domain/errors');
+const { isIsoDateTime } = require('../../../../application/shared/time');
 
 const manualNotificationSchema = z.object({
   type: z.enum(TYPE_VALUES),
@@ -27,28 +28,40 @@ const notificationIdSchema = z.object({
 
 const dateFilter = z
   .string()
-  .refine((value) => !Number.isNaN(Date.parse(value)), 'La fecha no es válida');
+  .refine(isIsoDateTime, 'La fecha debe ser ISO 8601 date-time con hora y offset');
 
-const listQuerySchema = z.object({
-  recipient_role: z
-    .enum(['FLEET_ADMINISTRATOR', 'MAINTENANCE_TECHNICIAN', 'MANAGEMENT', 'EMPLOYEE'])
-    .optional(),
-  type: z.enum(TYPE_VALUES).optional(),
-  severity: z.enum(SEVERITY_VALUES).optional(),
-  delivery_status: z.enum(DELIVERY_STATUS_VALUES).optional(),
-  acknowledgement_status: z.enum(ACKNOWLEDGEMENT_STATUS_VALUES).optional(),
-  reference_id: z.string().trim().min(1).max(50).optional(),
-  date_from: dateFilter.optional(),
-  date_to: dateFilter.optional(),
-  page: z.preprocess(
-    (value) => (value === undefined || value === '' ? 0 : Number(value)),
-    z.number().int().min(0),
-  ),
-  size: z.preprocess(
-    (value) => (value === undefined || value === '' ? 20 : Number(value)),
-    z.number().int().min(1).max(100),
-  ),
-});
+const MAX_LIST_OFFSET = 10000;
+
+const listQuerySchema = z
+  .object({
+    recipient_role: z
+      .enum(['FLEET_ADMINISTRATOR', 'MAINTENANCE_TECHNICIAN', 'MANAGEMENT', 'EMPLOYEE'])
+      .optional(),
+    type: z.enum(TYPE_VALUES).optional(),
+    severity: z.enum(SEVERITY_VALUES).optional(),
+    delivery_status: z.enum(DELIVERY_STATUS_VALUES).optional(),
+    acknowledgement_status: z.enum(ACKNOWLEDGEMENT_STATUS_VALUES).optional(),
+    reference_id: z.string().trim().min(1).max(50).optional(),
+    date_from: dateFilter.optional(),
+    date_to: dateFilter.optional(),
+    page: z.preprocess(
+      (value) => (value === undefined || value === '' ? 0 : Number(value)),
+      z.number().int().min(0),
+    ),
+    size: z.preprocess(
+      (value) => (value === undefined || value === '' ? 20 : Number(value)),
+      z.number().int().min(1).max(100),
+    ),
+  })
+  .superRefine((value, context) => {
+    if (value.page * value.size > MAX_LIST_OFFSET) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['page'],
+        message: `page * size no puede superar ${MAX_LIST_OFFSET}`,
+      });
+    }
+  });
 
 const issuesToErrors = (error) =>
   error.issues.map((issue) => ({
@@ -74,6 +87,7 @@ module.exports = {
   manualNotificationSchema,
   notificationIdSchema,
   listQuerySchema,
+  MAX_LIST_OFFSET,
   parseBody,
   parseParameters,
 };

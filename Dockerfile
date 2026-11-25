@@ -17,6 +17,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY package.json package-lock.json ./
 COPY src ./src
 COPY openapi ./openapi
+COPY scripts/email-smoke.js ./scripts/email-smoke.js
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

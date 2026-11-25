@@ -4,17 +4,17 @@ const { InvalidDataError } = require('../../../domain/errors');
 
 const eventEnvelopeSchema = z.object({
   event_id: z.string().uuid(),
-  event_type: z.string().min(1),
-  version: z.union([z.number(), z.string()]).optional(),
+  event_type: z.string().min(1).max(100),
+  version: z.union([z.number(), z.string().max(20)]).optional(),
   occurred_at: z.string().refine((value) => !Number.isNaN(Date.parse(value)), {
     message: 'occurred_at debe ser ISO 8601',
   }),
-  source: z.string().min(1),
-  correlation_id: z.string().min(1).optional(),
+  source: z.string().min(1).max(100),
+  correlation_id: z.string().min(1).max(100).optional(),
   data: z.object({}).passthrough(),
 });
 
-const parseEventEnvelope = (rawValue, { attributeEventType = null } = {}) => {
+const parseEventEnvelope = (rawValue, { attributeEventType = null, sourceAllowlist = [] } = {}) => {
   let parsed;
   try {
     parsed = JSON.parse(rawValue.toString('utf8'));
@@ -36,6 +36,16 @@ const parseEventEnvelope = (rawValue, { attributeEventType = null } = {}) => {
   if (attributeEventType && attributeEventType !== result.data.event_type) {
     throw new InvalidDataError('event_type del atributo no coincide con el del sobre', [
       { campo: 'event_type', codigo: 'MISMATCH' },
+    ]);
+  }
+
+  const allowedSources = sourceAllowlist.map((item) => String(item).trim().toLowerCase());
+  if (
+    allowedSources.length > 0 &&
+    !allowedSources.includes(result.data.source.trim().toLowerCase())
+  ) {
+    throw new InvalidDataError('source no está permitido', [
+      { campo: 'source', codigo: 'SOURCE_NOT_ALLOWED' },
     ]);
   }
 

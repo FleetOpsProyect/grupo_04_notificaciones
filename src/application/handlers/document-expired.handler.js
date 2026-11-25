@@ -3,20 +3,21 @@ const { Type, Severity, RecipientRole } = require('../../domain/enums');
 const { createNotificationPlan } = require('../shared/notification-plan');
 const { buildDocumentExpiredTemplate } = require('../templates/document-expired.template');
 const { parseEventData } = require('./event-data');
+const {
+  identifier,
+  optionalIdentifier,
+  optionalShortText,
+  optionalIsoDate,
+} = require('./event-fields');
 
 const eventType = 'document_expired_event';
 const documentExpiredSchema = z
   .object({
-    document_id: z.string().min(1),
-    document_type: z.string().min(1).optional(),
-    owner_type: z.string().min(1).optional(),
-    owner_id: z.string().min(1).optional(),
-    expiration_date: z
-      .string()
-      .refine((value) => !Number.isNaN(Date.parse(value)), {
-        message: 'expiration_date debe ser ISO 8601',
-      })
-      .optional(),
+    document_id: identifier,
+    document_type: optionalShortText,
+    owner_type: optionalShortText,
+    owner_id: optionalIdentifier,
+    expiration_date: optionalIsoDate('expiration_date debe ser ISO 8601'),
   })
   .passthrough();
 
@@ -26,6 +27,7 @@ const buildPlan = (envelope) => {
     documentId: data.document_id,
     documentType: data.document_type,
     ownerType: data.owner_type,
+    ownerId: data.owner_id,
     expirationDate: data.expiration_date,
   });
   return createNotificationPlan({

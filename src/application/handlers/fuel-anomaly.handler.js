@@ -3,6 +3,7 @@ const { Type, Severity, RecipientRole } = require('../../domain/enums');
 const { createNotificationPlan } = require('../shared/notification-plan');
 const { buildFuelAnomalyTemplate } = require('../templates/fuel-anomaly.template');
 const { parseEventData } = require('./event-data');
+const { optionalIdentifier, optionalIsoDate } = require('./event-fields');
 
 const ALIAS_EVENT_TYPES = Object.freeze([
   'fuel_anomaly_detected_event',
@@ -11,15 +12,15 @@ const ALIAS_EVENT_TYPES = Object.freeze([
 
 const fuelAnomalySchema = z
   .object({
-    fuel_record_id: z.string().min(1).optional(),
-    combustible_id: z.string().min(1).optional(),
-    assignment_id: z.string().min(1).optional(),
-    asignacion_id: z.string().min(1).optional(),
-    vehicle_id: z.string().min(1).optional(),
-    vehiculo_id: z.string().min(1).optional(),
-    driver_id: z.string().min(1).optional(),
-    route_id: z.string().min(1).optional(),
-    ruta_id: z.string().min(1).optional(),
+    fuel_record_id: optionalIdentifier,
+    combustible_id: optionalIdentifier,
+    assignment_id: optionalIdentifier,
+    asignacion_id: optionalIdentifier,
+    vehicle_id: optionalIdentifier,
+    vehiculo_id: optionalIdentifier,
+    driver_id: optionalIdentifier,
+    route_id: optionalIdentifier,
+    ruta_id: optionalIdentifier,
     efficiency_km_per_gallon: z.coerce.number().optional(),
     rendimiento: z.coerce.number().optional(),
     average_efficiency_km_per_gallon: z.coerce.number().optional(),
@@ -28,8 +29,8 @@ const fuelAnomalySchema = z
     galones_comprados: z.coerce.number().optional(),
     total_cost: z.coerce.number().optional(),
     costo_total: z.coerce.number().optional(),
-    recorded_at: z.string().optional(),
-    fecha_registro: z.string().optional(),
+    recorded_at: optionalIsoDate('recorded_at debe ser ISO 8601'),
+    fecha_registro: optionalIsoDate('fecha_registro debe ser ISO 8601'),
   })
   .passthrough();
 

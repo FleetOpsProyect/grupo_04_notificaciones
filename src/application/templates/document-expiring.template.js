@@ -1,29 +1,29 @@
+const ownerLabel = (ownerType) => {
+  if (ownerType === 'VEHICLE') {
+    return 'vehículo';
+  }
+  if (ownerType === 'DRIVER') {
+    return 'conductor';
+  }
+  return 'propietario';
+};
+
 const buildDocumentExpiringTemplate = ({
   daysRemaining,
   documentId,
   documentType,
   ownerType,
-  thresholdDays,
+  ownerId,
+  expirationDate,
 }) => {
-  const subject =
-    daysRemaining === null || daysRemaining === undefined
-      ? '[FleetOps] Documento próximo a vencer'
-      : `[FleetOps] Documento próximo a vencer en ${daysRemaining} días`;
-  const lines = [`Un documento${documentId ? ` (${documentId})` : ''} está próximo a vencer.`];
-  if (documentType) {
-    lines.push(`Tipo de documento: ${documentType}.`);
-  }
-  if (ownerType) {
-    lines.push(`Tipo de propietario: ${ownerType}.`);
-  }
-  if (daysRemaining !== null && daysRemaining !== undefined) {
-    lines.push(`Días restantes: ${daysRemaining}.`);
-  }
-  if (thresholdDays !== null && thresholdDays !== undefined) {
-    lines.push(`Umbral de alerta: ${thresholdDays} días.`);
-  }
-  lines.push('Revise la documentación en FleetOps.');
-  return { subject, message: lines.join('\n') };
+  const type = documentType ?? 'documento';
+  const owner = ownerId ?? 'propietario';
+  const expiration = expirationDate ?? 'fecha no disponible';
+  const subject = `[FleetOps] Documento próximo a vencer: ${type} de ${owner}`;
+  const message = `El documento ${type} (${documentId}) del ${ownerLabel(
+    ownerType,
+  )} ${owner} vence el ${expiration} (faltan ${daysRemaining} días).`;
+  return { subject, message };
 };
 
-module.exports = { buildDocumentExpiringTemplate };
+module.exports = { buildDocumentExpiringTemplate, ownerLabel };

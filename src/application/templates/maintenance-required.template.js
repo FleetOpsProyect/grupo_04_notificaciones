@@ -6,34 +6,19 @@ const formatKilometers = (value) => {
 };
 
 const buildMaintenanceRequiredTemplate = ({
-  kilometrajeActual,
-  umbralKm,
-  motivo,
-  vehiculoId,
-  mantenimientoId,
+  currentMileage,
+  thresholdKm,
+  triggerReason,
+  vehicleId,
+  maintenanceOrderId,
 }) => {
-  const subject = `[FleetOps] Mantenimiento preventivo requerido${
-    vehiculoId ? ` para ${vehiculoId}` : ''
-  }`;
-  const lines = ['Se requiere un mantenimiento preventivo.'];
-  if (mantenimientoId) {
-    lines.push(`Mantenimiento: ${mantenimientoId}`);
-  }
-  if (vehiculoId) {
-    lines.push(`Vehículo: ${vehiculoId}`);
-  }
-  const formattedKilometers = formatKilometers(kilometrajeActual);
-  if (formattedKilometers !== null) {
-    lines.push(`Kilometraje actual: ${formattedKilometers} km`);
-  }
-  const formattedThreshold = formatKilometers(umbralKm);
-  if (formattedThreshold !== null) {
-    lines.push(`Umbral configurado: ${formattedThreshold} km`);
-  }
-  if (motivo) {
-    lines.push(`Motivo: ${motivo}`);
-  }
-  lines.push('Programe el mantenimiento en FleetOps.');
+  const subject = `[FleetOps] Mantenimiento preventivo requerido: ${vehicleId}`;
+  const lines = [
+    `Mantenimiento preventivo requerido para el vehículo ${vehicleId}.`,
+    `Kilometraje actual: ${formatKilometers(currentMileage)} km (umbral: ${formatKilometers(thresholdKm)} km).`,
+    `Motivo: ${triggerReason}.`,
+    `Orden: ${maintenanceOrderId}.`,
+  ];
   return { subject, message: lines.join('\n') };
 };
 

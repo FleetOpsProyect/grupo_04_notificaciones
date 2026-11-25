@@ -12,3 +12,7 @@ service-account*.json
 Thumbs.db
 /docs/
 /silence/
+
+# Skills locales
+.agents/skills/security-audit/
+skills-lock.json

@@ -6,19 +6,55 @@ describe('configuración', () => {
     const config = loadConfig({});
     expect(config.port).toBe(3000);
     expect(config.email.provider).toBe('console');
+    expect(config.email.smtp).toMatchObject({
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
+      requireTls: true,
+      user: null,
+      password: null,
+    });
     expect(config.email.retryDelaysMs).toEqual([30000, 120000, 600000]);
     expect(config.sqs.consumerRetryDelaysMs).toEqual([2000, 10000, 30000]);
     expect(config.sqs.maxReceiveCount).toBe(4);
+    expect(config.sqs.sourceAllowlist).toEqual([]);
     expect(config.sqs.queueUrl).toBeNull();
     expect(config.recipients.MANAGEMENT).toBe('gerencia@example.invalid');
+    expect(config.enableSwagger).toBe(false);
   });
 
-  test('exige API key de Resend', () => {
+  test('exige credenciales SMTP cuando el proveedor es smtp', () => {
+    expect(() => loadConfig({ EMAIL_PROVIDER: 'smtp' })).toThrow(
+      'Configuración de entorno inválida',
+    );
+    expect(() =>
+      loadConfig({
+        EMAIL_PROVIDER: 'smtp',
+        SMTP_USER: 'fleetops.notificaciones@gmail.com',
+      }),
+    ).toThrow('Configuración de entorno inválida');
+    const config = loadConfig({
+      EMAIL_PROVIDER: 'smtp',
+      SMTP_USER: 'fleetops.notificaciones@gmail.com',
+      SMTP_PASSWORD: 'abcd efgh ijkl mnop',
+    });
+    expect(config.email.smtp).toMatchObject({
+      host: 'smtp.gmail.com',
+      port: 587,
+      user: 'fleetops.notificaciones@gmail.com',
+      password: 'abcdefghijklmnop',
+    });
+  });
+
+  test('rechaza proveedores de correo no soportados', () => {
     expect(() => loadConfig({ EMAIL_PROVIDER: 'resend' })).toThrow(
       'Configuración de entorno inválida',
     );
-    const config = loadConfig({ EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_test' });
-    expect(config.email.apiKey).toBe('re_test');
+  });
+
+  test('normaliza la allowlist de source', () => {
+    const config = loadConfig({ EVENT_SOURCE_ALLOWLIST: ' Incident , Fuel ,, ' });
+    expect(config.sqs.sourceAllowlist).toEqual(['incident', 'fuel']);
   });
 
   test('rechaza retardos inválidos', () => {
@@ -39,7 +75,7 @@ describe('sobre de evento estándar', () => {
     occurred_at: '2026-10-22T14:55:00.000Z',
     source: 'incident-service',
     correlation_id: '22222222-2222-4222-8222-222222222222',
-    data: { incidente_id: 'INC-1' },
+    data: { incident_id: 'INC-1' },
     desconocido: 'ignorado',
   };
 
@@ -68,11 +104,33 @@ describe('sobre de evento estándar', () => {
     ).not.toThrow();
   });
 
+  test('rechaza campos del sobre que exceden la longitud máxima', () => {
+    expect(() =>
+      parseEventEnvelope(
+        Buffer.from(JSON.stringify({ ...validEnvelope, event_type: 'x'.repeat(101) })),
+      ),
+    ).toThrow('Sobre de evento inválido');
+    expect(() =>
+      parseEventEnvelope(
+        Buffer.from(JSON.stringify({ ...validEnvelope, source: 'x'.repeat(101) })),
+      ),
+    ).toThrow('Sobre de evento inválido');
+  });
+
   test('rechaza event_type del atributo distinto al del sobre', () => {
     expect(() =>
       parseEventEnvelope(Buffer.from(JSON.stringify(validEnvelope)), {
         attributeEventType: 'minor_incident_reported_event',
       }),
     ).toThrow('no coincide');
+  });
+
+  test('aplica la allowlist de source solo cuando tiene valores', () => {
+    const body = Buffer.from(JSON.stringify(validEnvelope));
+    expect(() => parseEventEnvelope(body, { sourceAllowlist: [] })).not.toThrow();
+    expect(() => parseEventEnvelope(body, { sourceAllowlist: ['INCIDENT-SERVICE'] })).not.toThrow();
+    expect(() => parseEventEnvelope(body, { sourceAllowlist: ['fuel'] })).toThrow(
+      'source no está permitido',
+    );
   });
 });

@@ -12,7 +12,7 @@ const buildEnvelope = (overrides = {}) => ({
   occurred_at: '2026-10-28T10:00:00-05:00',
   source: 'incidentes',
   correlation_id: randomUUID(),
-  data: { incidente_id: 'inc-1' },
+  data: { incident_id: 'inc-1' },
   ...overrides,
 });
 
@@ -63,6 +63,20 @@ describe('Adaptador de entrada SQS', () => {
 
   test('rechaza un mensaje SQS sin Body', () => {
     expect(() => mapSqsMessageToEnvelope({})).toThrow('Mensaje SQS sin Body');
+  });
+
+  test('propaga la allowlist de source al sobre', () => {
+    const envelope = buildEnvelope({ source: 'fuel' });
+    expect(() =>
+      mapSqsMessageToEnvelope(
+        { Body: JSON.stringify(envelope) },
+        { sourceAllowlist: ['incident'] },
+      ),
+    ).toThrow('source no está permitido');
+    expect(
+      mapSqsMessageToEnvelope({ Body: JSON.stringify(envelope) }, { sourceAllowlist: ['FUEL'] })
+        .event_id,
+    ).toBe(envelope.event_id);
   });
 
   test('valida el message attribute event_type', () => {

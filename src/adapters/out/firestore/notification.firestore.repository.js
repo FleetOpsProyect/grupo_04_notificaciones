@@ -11,7 +11,21 @@ const {
   toTimestamp,
 } = require('./mappers/notification.mapper');
 
-const MAX_FALLBACK_DOCUMENTS = 10000;
+const MAX_FALLBACK_DOCUMENTS = 500;
+
+const buildFallbackLogFields = (filters, page, size, error) => {
+  const source = error?.cause ?? error;
+  return {
+    fallback_limit: MAX_FALLBACK_DOCUMENTS,
+    page,
+    size,
+    filters: Object.fromEntries(
+      Object.entries(filters).filter(([, value]) => value !== null && value !== undefined),
+    ),
+    error_name: source?.name ?? null,
+    error_code: source?.code ?? null,
+  };
+};
 
 const guard = async (operation) => {
   try {
@@ -20,7 +34,9 @@ const guard = async (operation) => {
     if (error instanceof DomainError) {
       throw error;
     }
-    throw new ServiceUnavailableError('Firestore no está disponible');
+    const wrapped = new ServiceUnavailableError('Firestore no está disponible');
+    wrapped.cause = error;
+    throw wrapped;
   }
 };
 
@@ -98,7 +114,7 @@ const emptySummary = () => ({
   ),
 });
 
-const createNotificationFirestoreRepository = (db, transaction = null) => {
+const createNotificationFirestoreRepository = (db, transaction = null, logger = null) => {
   const collection = db.collection('notifications');
   const read = (reference) => (transaction ? transaction.get(reference) : reference.get());
   const write = (reference, document) =>
@@ -277,7 +293,11 @@ const createNotificationFirestoreRepository = (db, transaction = null) => {
             summary,
           };
         });
-      } catch {
+      } catch (error) {
+        logger?.warn(
+          buildFallbackLogFields(filters, page, size, error),
+          'Fallback de listado activado; se requiere un índice compuesto para esta combinación de filtros',
+        );
         return guard(async () => {
           const snapshot = await collection
             .orderBy('created_at', 'desc')
@@ -337,4 +357,10 @@ const createNotificationFirestoreRepository = (db, transaction = null) => {
   return repository;
 };
 
-module.exports = { createNotificationFirestoreRepository, applyFilters, matchesInMemory };
+module.exports = {
+  createNotificationFirestoreRepository,
+  applyFilters,
+  matchesInMemory,
+  MAX_FALLBACK_DOCUMENTS,
+  buildFallbackLogFields,
+};

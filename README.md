@@ -26,12 +26,36 @@ npm start
 Por defecto el servicio usa `EMAIL_PROVIDER=console`, por lo que no envía correos reales. Para
 Firestore local configure `FIRESTORE_EMULATOR_HOST` y `FIREBASE_PROJECT_ID`.
 
-### Correo con Resend
+### Correo con Gmail SMTP
 
-Para envío real configure `EMAIL_PROVIDER=resend`, `RESEND_API_KEY` y `EMAIL_FROM`. El remitente debe
-ser un correo plano, sin `Nombre <correo>`; además, el dominio debe estar verificado en Resend
-(SPF/DKIM) o usar `onboarding@resend.dev` únicamente hacia el correo de la cuenta. La API key debe
-tener permiso de envío. No incluya credenciales en el repositorio ni en los logs.
+Para envío real configure `EMAIL_PROVIDER=smtp` y una cuenta Gmail dedicada con verificación en dos
+pasos. Genere un App Password de 16 caracteres y configúrelo en `SMTP_PASSWORD`. No use la contraseña
+normal de Google ni la cuenta institucional.
+
+```env
+EMAIL_PROVIDER=smtp
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_REQUIRE_TLS=true
+SMTP_USER=fleetops.notificaciones@gmail.com
+SMTP_PASSWORD=<app-password>
+EMAIL_FROM=fleetops.notificaciones@gmail.com
+EMAIL_TIMEOUT_MS=10000
+```
+
+Gmail reescribe el `From`, por lo que `EMAIL_FROM` debe ser la misma cuenta de `SMTP_USER`. El envío
+tiene límites aproximados de 500 destinatarios/día y 100 destinatarios por mensaje. Gmail SMTP **no
+ofrece idempotencia**: si el proceso cae después de enviar y antes de marcar `SENT`, un reintento puede
+duplicar el correo. Se acepta entrega al menos una vez y se documenta como limitación.
+
+Prueba local:
+
+```bash
+npm run email:smoke -- ivan.morales.ds@gmail.com
+```
+
+El smoke no debe ejecutarse en CI ni con credenciales reales en el repositorio.
 
 ### Integración SQS/SNS con LocalStack
 
@@ -77,37 +101,40 @@ Ejecute las suites en secuencia, no en paralelo. Si el servicio local sigue acti
 
 Variables relevantes:
 
-| Variable                       | Uso                                                    |
-| ------------------------------ | ------------------------------------------------------ |
-| `PORT`                         | Puerto HTTP, `3000` por defecto                        |
-| `FIREBASE_PROJECT_ID`          | Proyecto Firestore                                     |
-| `FIRESTORE_EMULATOR_HOST`      | Emulador local de Firestore                            |
-| `SQS_QUEUE_URL`, `SQS_DLQ_URL` | Colas FIFO del servicio                                |
-| `SQS_MAX_RECEIVE_COUNT`        | Recepciones antes de DLQ, `4` por defecto              |
-| `SNS_NOTIFICATION_TOPIC_ARN`   | Topic SNS propio para eventos `notification_*`         |
-| `EMAIL_PROVIDER`               | `console` o `resend`                                   |
-| `RESEND_API_KEY`               | Obligatoria con `EMAIL_PROVIDER=resend`                |
-| `EMAIL_FROM`                   | Remitente verificado; correo plano, sin nombre         |
-| `EMAIL_RETRY_DELAYS_MS`        | Backoff de correo, por defecto `30000,120000,600000`   |
-| `EMAIL_CB_FAILURE_THRESHOLD`   | Fallos para abrir el Circuit Breaker, `5` por defecto  |
-| `CONSUMER_RETRY_DELAYS_MS`     | Esperas del consumidor, por defecto `2000,10000,30000` |
-| `DISPATCH_INTERVAL_MS`         | Frecuencia del scheduler, `10000` por defecto          |
-| `OUTBOX_POLL_INTERVAL_MS`      | Frecuencia del publicador Outbox, `2000` por defecto   |
-| `RECIPIENT_*`                  | Correos de destino por rol                             |
+| Variable                           | Uso                                                    |
+| ---------------------------------- | ------------------------------------------------------ |
+| `PORT`                             | Puerto HTTP, `3000` por defecto                        |
+| `FIREBASE_PROJECT_ID`              | Proyecto Firestore                                     |
+| `FIRESTORE_EMULATOR_HOST`          | Emulador local de Firestore                            |
+| `SQS_QUEUE_URL`, `SQS_DLQ_URL`     | Colas FIFO del servicio                                |
+| `SQS_MAX_RECEIVE_COUNT`            | Recepciones antes de DLQ, `4` por defecto              |
+| `EVENT_SOURCE_ALLOWLIST`           | Allowlist opcional de `source`; vacía = deshabilitada  |
+| `SNS_NOTIFICATION_TOPIC_ARN`       | Topic SNS propio para eventos `notification_*`         |
+| `EMAIL_PROVIDER`                   | `console` o `smtp`                                     |
+| `SMTP_HOST` / `SMTP_PORT`          | Servidor SMTP; Gmail `smtp.gmail.com` / `587`          |
+| `SMTP_SECURE` / `SMTP_REQUIRE_TLS` | TLS; para Gmail `false` / `true`                       |
+| `SMTP_USER` / `SMTP_PASSWORD`      | Cuenta Gmail y App Password de 16 caracteres           |
+| `EMAIL_FROM`                       | Remitente; para Gmail debe ser igual a `SMTP_USER`     |
+| `EMAIL_RETRY_DELAYS_MS`            | Backoff de correo, por defecto `30000,120000,600000`   |
+| `EMAIL_CB_FAILURE_THRESHOLD`       | Fallos para abrir el Circuit Breaker, `5` por defecto  |
+| `CONSUMER_RETRY_DELAYS_MS`         | Esperas del consumidor, por defecto `2000,10000,30000` |
+| `DISPATCH_INTERVAL_MS`             | Frecuencia del scheduler, `10000` por defecto          |
+| `OUTBOX_POLL_INTERVAL_MS`          | Frecuencia del publicador Outbox, `2000` por defecto   |
+| `RECIPIENT_*`                      | Correos de destino por rol                             |
 
 ## Endpoints
 
-| Método | Ruta                                 | Descripción                               |
-| ------ | ------------------------------------ | ----------------------------------------- |
-| `POST` | `/notifications`                     | Crea alerta y notificación manual         |
-| `GET`  | `/notifications/status`              | Conteos agregados                         |
-| `GET`  | `/notifications`                     | Listado con filtros, paginación y resumen |
-| `GET`  | `/notifications/:id`                 | Detalle con correo enmascarado            |
-| `PUT`  | `/notifications/:id/acknowledgement` | Reconocimiento idempotente                |
-| `GET`  | `/health`                            | Liveness                                  |
-| `GET`  | `/ready`                             | Readiness; `503` solo si Firestore falla  |
-| `GET`  | `/metrics`                           | Métricas Prometheus                       |
-| `GET`  | `/api-docs`                          | Swagger UI si `ENABLE_SWAGGER=true`       |
+| Método | Ruta                                 | Descripción                                                    |
+| ------ | ------------------------------------ | -------------------------------------------------------------- |
+| `POST` | `/notifications`                     | Crea alerta y notificación manual                              |
+| `GET`  | `/notifications/status`              | Conteos agregados                                              |
+| `GET`  | `/notifications`                     | Listado con filtros, paginación y resumen                      |
+| `GET`  | `/notifications/:id`                 | Detalle con correo enmascarado                                 |
+| `PUT`  | `/notifications/:id/acknowledgement` | Reconocimiento idempotente                                     |
+| `GET`  | `/health`                            | Liveness                                                       |
+| `GET`  | `/ready`                             | Readiness; `503` solo si Firestore falla                       |
+| `GET`  | `/metrics`                           | Métricas Prometheus                                            |
+| `GET`  | `/api-docs`                          | Swagger UI si `ENABLE_SWAGGER=true`; deshabilitado por defecto |
 
 Contrato completo: `openapi/notification-service.yaml`.
 
@@ -161,7 +188,9 @@ test/
 
 - CommonJS, Node.js y Jest; sin transpilación.
 - Consultas de listado con filtros compuestos usan índices; si Firestore no puede resolver una
-  combinación, se ejecuta un fallback acotado a 10.000 documentos.
+  combinación, se ejecuta un fallback acotado a 500 documentos y se registra la combinación exacta
+  de filtros para guiar la creación del índice faltante.
+- El listado exige `page * size <= 10000`.
 - El índice `delivery_status + next_attempt_at` y el de outbox están creados y el flujo
   `SQS -> Firestore -> scheduler -> correo console -> outbox -> SNS` funciona. Los 9 índices
   compuestos están creados y en `READY`; la cuenta de servicio no tiene permiso para crearlos por script.
@@ -235,7 +264,7 @@ La aplicación usa el rol de instancia; **no** configure `AWS_ACCESS_KEY_ID` ni 
 
 - `22/tcp` desde GitHub Actions (o SSM en lugar de SSH).
 - `3000/tcp` solo desde el API Gateway, servicios internos y Prometheus.
-- Salida `443/tcp` hacia SQS, SNS, Firestore, Docker Hub y Resend.
+- Salida `443/tcp` hacia SQS, SNS, Firestore y Docker Hub; `587/tcp` o `465/tcp` hacia Gmail SMTP.
 
 ### Primer despliegue y rollback
 
@@ -244,8 +273,13 @@ La aplicación usa el rol de instancia; **no** configure `AWS_ACCESS_KEY_ID` ni 
 3. Comprobar `docker-compose ps`, `/health` y `/ready` en la instancia.
 4. `.current_image` guarda el tag desplegado y `.previous_image` el anterior; el CD hace rollback automático si el smoke falla.
 
+## Contribución
+
+Las reglas de ramas, commits y pull requests están en `CONTRIBUTING.md`.
+
 ## Documentación relacionada
 
+- Guía de contribución: `CONTRIBUTING.md`
 - Índice documental: `docs/README.md`
 - Estado actual: `docs/estado/estado-actual.md`
 - Backlog: `docs/estado/backlog.md`

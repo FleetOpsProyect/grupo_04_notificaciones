@@ -156,11 +156,13 @@ const eventEnvelope = (overrides = {}) => ({
   source: 'incident-service',
   correlation_id: '22222222-2222-4222-8222-222222222222',
   data: {
-    incidente_id: 'INC-001',
-    vehiculo_id: 'VEH-001',
-    tipo_incidente: 'Choque',
-    requiere_asistencia: true,
-    fecha_reporte: '2026-10-22T14:50:00.000Z',
+    incident_id: 'INC-001',
+    assignment_id: 'ASG-001',
+    vehicle_id: 'VEH-001',
+    driver_id: 'DRV-001',
+    severity: 'severe',
+    description: 'Choque',
+    reported_at: '2026-10-22T14:50:00.000Z',
   },
   ...overrides,
 });
