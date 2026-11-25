@@ -6,6 +6,14 @@ describe('configuración', () => {
     const config = loadConfig({});
     expect(config.port).toBe(3000);
     expect(config.email.provider).toBe('console');
+    expect(config.email.smtp).toMatchObject({
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
+      requireTls: true,
+      user: null,
+      password: null,
+    });
     expect(config.email.retryDelaysMs).toEqual([30000, 120000, 600000]);
     expect(config.sqs.consumerRetryDelaysMs).toEqual([2000, 10000, 30000]);
     expect(config.sqs.maxReceiveCount).toBe(4);
@@ -15,12 +23,33 @@ describe('configuración', () => {
     expect(config.enableSwagger).toBe(false);
   });
 
-  test('exige API key de Resend', () => {
+  test('exige credenciales SMTP cuando el proveedor es smtp', () => {
+    expect(() => loadConfig({ EMAIL_PROVIDER: 'smtp' })).toThrow(
+      'Configuración de entorno inválida',
+    );
+    expect(() =>
+      loadConfig({
+        EMAIL_PROVIDER: 'smtp',
+        SMTP_USER: 'fleetops.notificaciones@gmail.com',
+      }),
+    ).toThrow('Configuración de entorno inválida');
+    const config = loadConfig({
+      EMAIL_PROVIDER: 'smtp',
+      SMTP_USER: 'fleetops.notificaciones@gmail.com',
+      SMTP_PASSWORD: 'abcd efgh ijkl mnop',
+    });
+    expect(config.email.smtp).toMatchObject({
+      host: 'smtp.gmail.com',
+      port: 587,
+      user: 'fleetops.notificaciones@gmail.com',
+      password: 'abcdefghijklmnop',
+    });
+  });
+
+  test('rechaza proveedores de correo no soportados', () => {
     expect(() => loadConfig({ EMAIL_PROVIDER: 'resend' })).toThrow(
       'Configuración de entorno inválida',
     );
-    const config = loadConfig({ EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_test' });
-    expect(config.email.apiKey).toBe('re_test');
   });
 
   test('normaliza la allowlist de source', () => {

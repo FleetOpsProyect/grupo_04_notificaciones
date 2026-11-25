@@ -79,13 +79,22 @@ const envSchema = z
       z.string().trim().optional(),
     ),
 
-    EMAIL_PROVIDER: z.enum(['console', 'resend']).default('console'),
-    RESEND_API_KEY: z.preprocess(
+    EMAIL_PROVIDER: z.enum(['console', 'smtp']).default('console'),
+    SMTP_HOST: z.string().trim().default('smtp.gmail.com'),
+    SMTP_PORT: integer(587, 1),
+    SMTP_SECURE: boolean.default(false),
+    SMTP_REQUIRE_TLS: boolean.default(true),
+    SMTP_USER: z.preprocess(
       (value) => (value === '' ? undefined : value),
       z.string().trim().optional(),
     ),
+    SMTP_PASSWORD: z.preprocess(
+      (value) =>
+        value === undefined || value === '' ? undefined : String(value).replace(/\s+/g, ''),
+      z.string().optional(),
+    ),
     EMAIL_FROM: email.default('notificaciones@example.invalid'),
-    EMAIL_TIMEOUT_MS: integer(5000, 1),
+    EMAIL_TIMEOUT_MS: integer(10000, 1),
     EMAIL_RETRY_DELAYS_MS: z.string().default('30000,120000,600000'),
     EMAIL_MAX_ATTEMPTS: integer(4, 1),
     EMAIL_CB_FAILURE_THRESHOLD: integer(5, 1),
@@ -110,11 +119,11 @@ const envSchema = z
     SHUTDOWN_TIMEOUT_MS: integer(10000, 1),
   })
   .superRefine((value, context) => {
-    if (value.EMAIL_PROVIDER === 'resend' && !value.RESEND_API_KEY) {
+    if (value.EMAIL_PROVIDER === 'smtp' && (!value.SMTP_USER || !value.SMTP_PASSWORD)) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ['RESEND_API_KEY'],
-        message: 'RESEND_API_KEY es obligatoria cuando EMAIL_PROVIDER=resend',
+        path: ['SMTP_USER'],
+        message: 'SMTP_USER y SMTP_PASSWORD son obligatorias cuando EMAIL_PROVIDER=smtp',
       });
     }
   });
@@ -185,7 +194,14 @@ const loadConfig = (environment = process.env) => {
     }),
     email: Object.freeze({
       provider: value.EMAIL_PROVIDER,
-      apiKey: value.RESEND_API_KEY ?? null,
+      smtp: Object.freeze({
+        host: value.SMTP_HOST,
+        port: value.SMTP_PORT,
+        secure: value.SMTP_SECURE,
+        requireTls: value.SMTP_REQUIRE_TLS,
+        user: value.SMTP_USER ?? null,
+        password: value.SMTP_PASSWORD ?? null,
+      }),
       from: value.EMAIL_FROM,
       timeoutMs: value.EMAIL_TIMEOUT_MS,
       retryDelaysMs: Object.freeze(retryDelays),

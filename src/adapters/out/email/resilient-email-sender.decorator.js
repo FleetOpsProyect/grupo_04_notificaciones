@@ -10,7 +10,7 @@ const createCircuitOpenError = () => {
 
 const createResilientEmailSender = ({
   sender,
-  timeoutMs = 5000,
+  timeoutMs = 10000,
   circuitBreakerThreshold = 5,
   circuitBreakerResetMs = 30000,
   metrics,

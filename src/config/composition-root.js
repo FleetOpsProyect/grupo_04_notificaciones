@@ -13,7 +13,7 @@ const {
   createOutboxEventFirestoreRepository,
 } = require('../adapters/out/firestore/outbox-event.firestore.repository');
 const { createConsoleEmailSender } = require('../adapters/out/email/console-email-sender');
-const { createResendEmailSender } = require('../adapters/out/email/resend-email-sender');
+const { createSmtpEmailSender } = require('../adapters/out/email/smtp-email-sender');
 const {
   createResilientEmailSender,
 } = require('../adapters/out/email/resilient-email-sender.decorator');
@@ -72,10 +72,21 @@ const createContainer = (config) => {
   const registry = createEventHandlerRegistry();
   const recipientDirectory = createEnvRecipientDirectory({ recipients: config.recipients });
 
-  const baseEmailSender =
-    config.email.provider === 'resend'
-      ? createResendEmailSender({ apiKey: config.email.apiKey, from: config.email.from })
-      : createConsoleEmailSender({ logger });
+  let baseEmailSender;
+  if (config.email.provider === 'smtp') {
+    baseEmailSender = createSmtpEmailSender({
+      host: config.email.smtp.host,
+      port: config.email.smtp.port,
+      secure: config.email.smtp.secure,
+      requireTls: config.email.smtp.requireTls,
+      user: config.email.smtp.user,
+      pass: config.email.smtp.password,
+      from: config.email.from,
+      timeoutMs: config.email.timeoutMs,
+    });
+  } else {
+    baseEmailSender = createConsoleEmailSender({ logger });
+  }
   const emailSender = createResilientEmailSender({
     sender: baseEmailSender,
     timeoutMs: config.email.timeoutMs,
